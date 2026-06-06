@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+<<<<<<< HEAD
+  "sourceRoot": "src/modules",
+  "generateOptions": {
+    "spec": false,
+    "flat": false
+  },
+  "assets": [
+    {
+      "include": "tools/**/*",
+      "outDir": "dist"
+    }
+  ],
+  "schematics": {
+    "@nestjs/schematics:controller": {
+      "language": "ts",
+      "spec": false,
+      "prefix": "api",
+      "path": "src/modules"
+    },
+    "@nestjs/schematics:service": {
+      "language": "ts",
+      "spec": false,
+      "path": "src/modules"
+    },
+    "@nestjs/schematics:module": {
+      "language": "ts",
+      "spec": false,
+      "path": "src/modules"
+    },
+    "@nestjs/schematics:resource": {
+      "language": "ts",
+      "spec": false,
+      "path": "src/modules"
+    }
+=======
+  "sourceRoot": "src",
+  "compilerOptions": {
+    "deleteOutDir": true
+>>>>>>> 15cbbc06f1931aee169e6a7d908c5a8ef96a9d2b
+  }
+}
