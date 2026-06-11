@@ -22,31 +22,31 @@ export class FileVideoService implements IVideoAttachRepository {
     private readonly draftRepo: Repository<VideoDraftEntity>,
   ) {}
 
-  async resizeVideo(filePath: string, filename: string): Promise<string> {
-    const outputDir = path.join(process.cwd(), 'uploads', 'videos');
-    fs.mkdirSync(outputDir, { recursive: true });
+    async resizeVideo(filePath: string, filename: string): Promise<string> {
+      const outputDir = path.join(process.cwd(), 'uploads', 'videos');
+      fs.mkdirSync(outputDir, { recursive: true });
 
-    const outputPath = path.join(outputDir, filename);
+      const outputPath = path.join(outputDir, filename);
 
-    return new Promise((resolve, reject) => {
-      ffmpeg(filePath)
-        .videoCodec('libx264')
-        .outputOptions([
-          '-vf scale=720:-2', // عرض 720، ارتفاع خودکار (حفظ نسبت تصویر)
-          '-preset veryfast', // سرعت encode
-          '-crf 28', // کیفیت معمولی با فشرده سازی خوب
-          '-movflags +faststart', // شروع سریع در موبایل و وب
-        ])
-        .audioCodec('aac')
-        .audioBitrate('96k') // صدای مناسب موبایل
-        .on('end', () => {
-          fs.unlink(filePath, () => {}); // حذف فایل موقت
-          resolve(outputPath);
-        })
-        .on('error', (err) => reject(err))
-        .save(outputPath);
-    });
-  }
+      return new Promise((resolve, reject) => {
+        ffmpeg(filePath)
+          .videoCodec('libx264')
+          .outputOptions([
+            '-vf scale=720:-2', // عرض 720، ارتفاع خودکار (حفظ نسبت تصویر)
+            '-preset veryfast', // سرعت encode
+            '-crf 28', // کیفیت معمولی با فشرده سازی خوب
+            '-movflags +faststart', // شروع سریع در موبایل و وب
+          ])
+          .audioCodec('aac')
+          .audioBitrate('96k') // صدای مناسب موبایل
+          .on('end', () => {
+            fs.unlink(filePath, () => {}); // حذف فایل موقت
+            resolve(outputPath);
+          })
+          .on('error', (err) => reject(err))
+          .save(outputPath);
+      });
+    }
 
   async createDraft(data: any): Promise<DraftResult> {
     const draft = this.draftRepo.create({
