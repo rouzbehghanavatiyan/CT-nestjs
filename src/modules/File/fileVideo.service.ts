@@ -9,7 +9,7 @@ import {
   DraftResult,
   UUID,
 } from './IRepositories/IVideoAttach.repository';
-import * as ffmpeg from 'fluent-ffmpeg';
+import ffmpeg from 'fluent-ffmpeg';
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -109,7 +109,7 @@ export class FileVideoService implements IVideoAttachRepository {
   }
 
   // ── completeDraft ─────────────────────────────────────────────────────────
-  async completeDraft(draftId: UUID): Promise<DraftResult> {
+  async completeDraft(draftId: UUID): Promise<any> {
     const draft = await this.draftRepo.findOne({ where: { id: draftId } });
     if (!draft) {
       return { ok: false, draftId, message: 'draft not found' };
@@ -139,11 +139,12 @@ export class FileVideoService implements IVideoAttachRepository {
 
       return { ok: true, draftId };
     } catch (err) {
-      return { ok: false, draftId, message: err.message };
+      // return { ok: false, draftId, message: err.message };
+      console.log(err);
+      
     }
   }
 
-  // ── deleteDraft ───────────────────────────────────────────────────────────
   async deleteDraft(draftId: UUID): Promise<DraftResult> {
     const draft = await this.draftRepo.findOne({ where: { id: draftId } });
     if (!draft) {

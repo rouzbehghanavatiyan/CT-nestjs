@@ -15,7 +15,7 @@ import {
   readFileSync,
   rmSync,
 } from 'fs';
-import * as ffmpeg from 'fluent-ffmpeg';
+import ffmpeg from 'fluent-ffmpeg';
 import { v4 as uuidv4 } from 'uuid';
 import type {
   IVideoAttachRepository,
