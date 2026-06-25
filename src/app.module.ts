@@ -10,6 +10,7 @@ import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { ChatModule } from './modules/chat/chat.module';
 import { SocketModule } from './modules/socket/socket.module';
 import { StoreModule } from './modules/store/store.module';
+import { FileModule } from './modules/File/file.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { StoreModule } from './modules/store/store.module';
     SocketModule,
     StoreModule,
     AuthModule,
+    FileModule,
   ],
   providers: [
     {

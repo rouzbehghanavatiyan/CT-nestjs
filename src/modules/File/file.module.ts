@@ -17,7 +17,6 @@ import { ResizeVideoUseCase } from './use-case/resizeVideo.use-case';
 
   providers: [
     FileVideoService,
-    
     UploadStartFileDraftUseCase,
     CreateDraftUseCase,
     CompleteDraftUseCase,

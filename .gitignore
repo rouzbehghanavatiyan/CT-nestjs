@@ -3,6 +3,8 @@
 /node_modules
 /build
 *.exe
+*mp4
+*.mp4
 # Logs
 logs
 *.log
