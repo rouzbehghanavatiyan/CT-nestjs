@@ -20,8 +20,10 @@ import { AttachmentEntity } from './attachment.entity';
 
 // const FINAL_UPLOAD_DIR = 'C:\\inetpub\\wwwroot\\sotapi\\uploadapi\\wwwroot\\mo';
 
-const FINAL_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'mo');
-
+// const FINAL_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'mo');
+const FINAL_UPLOAD_DIR = process.env.UPLOAD_DIR
+  ? path.resolve(process.env.UPLOAD_DIR)
+  : path.join(process.cwd(), 'uploads', 'mo');
 if (!fs.existsSync(FINAL_UPLOAD_DIR)) {
   fs.mkdirSync(FINAL_UPLOAD_DIR, { recursive: true });
 }

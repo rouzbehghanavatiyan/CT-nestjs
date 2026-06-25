@@ -10,9 +10,16 @@ import { CompleteDraftUseCase } from './use-case/completeDraft.use-case';
 import { DeleteDraftUseCase } from './use-case/deleteDraft.use-case';
 import { ResizeVideoUseCase } from './use-case/resizeVideo.use-case';
 import { AttachmentEntity } from './attachment.entity';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([VideoDraftEntity, AttachmentEntity])],
+  imports: [
+    TypeOrmModule.forFeature([VideoDraftEntity, AttachmentEntity]),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
+  ],
   controllers: [FileController],
   providers: [
     FileVideoService,
