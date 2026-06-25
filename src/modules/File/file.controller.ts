@@ -1,13 +1,18 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Param,
   Post,
   UploadedFile,
+  UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  FileFieldsInterceptor,
+  FileInterceptor,
+} from '@nestjs/platform-express';
 import { memoryStorage, diskStorage } from 'multer';
 import { extname } from 'path';
 import { UploadStartFileDraftUseCase } from './use-case/uploadStartFileDraft.use-case';
@@ -15,6 +20,7 @@ import { CreateDraftUseCase } from './use-case/createDraft.use-case';
 import { CompleteDraftUseCase } from './use-case/completeDraft.use-case';
 import { DeleteDraftUseCase } from './use-case/deleteDraft.use-case';
 import { ResizeVideoUseCase } from './use-case/resizeVideo.use-case';
+import { FileVideoService } from './fileVideo.service';
 
 @Controller('api/file')
 export class FileController {
@@ -24,34 +30,64 @@ export class FileController {
     private readonly completeDraftUseCase: CompleteDraftUseCase,
     private readonly deleteDraftUseCase: DeleteDraftUseCase,
     private readonly resizeVideoUseCase: ResizeVideoUseCase,
+    private readonly fileVideoService: FileVideoService,
   ) {}
 
   @Post('uploadVideo')
   @UseInterceptors(
-    FileInterceptor('video', {
-      storage: diskStorage({
-        destination: './uploads/temp',
-        filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
-    }),
+    FileFieldsInterceptor(
+      [
+        { name: 'video', maxCount: 1 }, // ✅ فیلد ویدیو
+        { name: 'imageCover', maxCount: 1 }, // ✅ فیلد تصویر کاور
+      ],
+      {
+        storage: diskStorage({
+          destination: './uploads/temp',
+          filename: (req, file, cb) => {
+            const uniqueSuffix =
+              Date.now() + '-' + Math.round(Math.random() * 1e9);
+            cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+          },
+        }),
+        limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
+      },
+    ),
   )
-  async uploadAndResizeVideo(@UploadedFile() file: Express.Multer.File) {
-    if (!file) {
-      return { code: -1, message: 'فایلی ارسال نشده است' };
+  async uploadAndResizeVideo(
+    @UploadedFiles()
+    files: {
+      video?: Express.Multer.File[];
+      imageCover?: Express.Multer.File[];
+    },
+    @Body()
+    body: {
+      attachmentId: string;
+      attachmentType: string;
+      attachmentName: string;
+    },
+  ) {
+    const videoFile = files?.video?.[0];
+    const imageCoverFile = files?.imageCover?.[0];
+
+    if (!videoFile) {
+      throw new BadRequestException('فایل ویدیو ارسال نشده است');
     }
-    const resizedVideoPath = await this.resizeVideoUseCase.execute(file);
+    if (!imageCoverFile) {
+      throw new BadRequestException('فایل تصویر کاور ارسال نشده است');
+    }
+
+    const result = await this.fileVideoService.processAndSave({
+      videoFile,
+      imageCoverFile,
+      attachmentId: body.attachmentId,
+      attachmentType: body.attachmentType,
+      attachmentName: body.attachmentName,
+    });
 
     return {
       code: 0,
-      message: 'ویدیو با موفقیت دریافت و ریسایز شد',
-      data: {
-        originalPath: file.path,
-        resizedPath: resizedVideoPath,
-      },
+      message: 'ویدیو با موفقیت آپلود و پردازش شد',
+      data: result,
     };
   }
 

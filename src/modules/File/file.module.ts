@@ -9,12 +9,11 @@ import { CreateDraftUseCase } from './use-case/createDraft.use-case';
 import { CompleteDraftUseCase } from './use-case/completeDraft.use-case';
 import { DeleteDraftUseCase } from './use-case/deleteDraft.use-case';
 import { ResizeVideoUseCase } from './use-case/resizeVideo.use-case';
+import { AttachmentEntity } from './attachment.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([VideoDraftEntity])],
-
+  imports: [TypeOrmModule.forFeature([VideoDraftEntity, AttachmentEntity])],
   controllers: [FileController],
-
   providers: [
     FileVideoService,
     UploadStartFileDraftUseCase,
