@@ -10,6 +10,6 @@ export class DeleteDraftUseCase {
   ) {}
 
   async execute(draftId: string) {
-    return await this.videoAttachRepository.deleteDraft(draftId);
+    // return await this.videoAttachRepository.deleteDraft(draftId);
   }
 }

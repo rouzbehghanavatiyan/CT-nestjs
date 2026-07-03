@@ -11,6 +11,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { SocketModule } from './modules/socket/socket.module';
 import { StoreModule } from './modules/store/store.module';
 import { FileModule } from './modules/File/file.module';
+import { ApiModule } from './modules/Api/api.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { FileModule } from './modules/File/file.module';
     TypeOrmModule.forFeature([ChatEntity]),
     ChatModule,
     SocketModule,
+    ApiModule,
     StoreModule,
     AuthModule,
     FileModule,

@@ -10,6 +10,6 @@ export class CompleteDraftUseCase {
   ) {}
 
   async execute(draftId: string) {
-    return await this.videoAttachRepository.completeDraft(draftId);
+    // return await this.videoAttachRepository.completeDraft(draftId);
   }
 }

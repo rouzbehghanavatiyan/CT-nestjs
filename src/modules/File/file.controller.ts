@@ -1,3 +1,4 @@
+// src/modules/File/file.controller.ts
 import {
   BadRequestException,
   Body,
@@ -15,6 +16,7 @@ import {
 } from '@nestjs/platform-express';
 import { memoryStorage, diskStorage } from 'multer';
 import { extname } from 'path';
+import * as fs from 'fs';
 import { UploadStartFileDraftUseCase } from './use-case/uploadStartFileDraft.use-case';
 import { CreateDraftUseCase } from './use-case/createDraft.use-case';
 import { CompleteDraftUseCase } from './use-case/completeDraft.use-case';
@@ -37,12 +39,18 @@ export class FileController {
   @UseInterceptors(
     FileFieldsInterceptor(
       [
-        { name: 'video', maxCount: 1 }, // ✅ فیلد ویدیو
-        { name: 'imageCover', maxCount: 1 }, // ✅ فیلد تصویر کاور
+        { name: 'video', maxCount: 1 },
+        { name: 'imageCover', maxCount: 1 },
       ],
       {
         storage: diskStorage({
-          destination: './uploads/temp',
+          destination: (req, file, cb) => {
+            const uploadPath = './uploads/temp';
+            if (!fs.existsSync(uploadPath)) {
+              fs.mkdirSync(uploadPath, { recursive: true });
+            }
+            cb(null, uploadPath);
+          },
           filename: (req, file, cb) => {
             const uniqueSuffix =
               Date.now() + '-' + Math.round(Math.random() * 1e9);
@@ -66,6 +74,8 @@ export class FileController {
       attachmentName: string;
     },
   ) {
+    // کامنت شده به علت عدم وجود متد processAndSave در FileVideoService
+    /*
     const videoFile = files?.video?.[0];
     const imageCoverFile = files?.imageCover?.[0];
 
@@ -89,6 +99,8 @@ export class FileController {
       message: 'ویدیو با موفقیت آپلود و پردازش شد',
       data: result,
     };
+    */
+    return { message: 'Feature temporarily disabled' };
   }
 
   @Post('uploadChunk')
@@ -97,7 +109,10 @@ export class FileController {
       storage: memoryStorage(),
     }),
   )
-  async uploadChunk(@UploadedFile() file: Express.Multer.File, @Body() body) {
+  async uploadChunk(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { draftId: string; chunkIndex: string; totalChunks: string },
+  ) {
     return this.uploadStartFileDraftUseCase.execute({
       draftId: body.draftId,
       chunkIndex: +body.chunkIndex,

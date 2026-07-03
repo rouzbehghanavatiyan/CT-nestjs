@@ -10,6 +10,6 @@ export class UploadStartFileDraftUseCase {
   ) {}
 
   async execute(coverData: any) {
-    return await this.videoAttachRepository.uploadStartFileDraft(coverData);
+    // return await this.videoAttachRepository.uploadStartFileDraft(coverData);
   }
 }

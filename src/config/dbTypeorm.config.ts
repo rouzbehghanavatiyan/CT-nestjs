@@ -1,6 +1,6 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { StatusEntity } from 'src/modules/Api/status.entity';
 import { ChatEntity } from 'src/modules/chat/chat.entity';
-import { AttachmentEntity } from 'src/modules/File/attachment.entity';
 import { VideoDraftEntity } from 'src/modules/File/VideoDraftEntity';
 import { Payment } from 'src/modules/store/paymant.entity';
 import { StoreEntity } from 'src/modules/store/store.entity';
@@ -15,11 +15,11 @@ export const typeOrmConfig: TypeOrmModuleOptions = {
   entities: [
     ChatEntity,
     StoreEntity,
+    StatusEntity,
     Payment,
     VideoDraftEntity,
-    AttachmentEntity,
   ],
-  synchronize: false,
+  synchronize: true,
   options: {
     trustServerCertificate: true,
   },

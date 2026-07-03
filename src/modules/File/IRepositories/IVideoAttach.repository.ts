@@ -36,8 +36,8 @@ export interface UploadStartDraftInput {
 
 export interface IVideoAttachRepository {
   resizeVideo(filePath: string, filename: string): Promise<string>;
-  createDraft(data: any): Promise<any>;
-  uploadStartFileDraft(data: UploadStartDraftInput): Promise<UploadSession>;
-  completeDraft(draftId: UUID): Promise<DraftResult>;
-  deleteDraft(draftId: UUID): Promise<DraftResult>;
+  // createDraft(data: any): Promise<any>;
+  // uploadStartFileDraft(data: UploadStartDraftInput): Promise<UploadSession>;
+  // completeDraft(draftId: UUID): Promise<DraftResult>;
+  // deleteDraft(draftId: UUID): Promise<DraftResult>;
 }
