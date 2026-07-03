@@ -1,12 +1,24 @@
-import { Injectable } from '@nestjs/common';
-import { ApiService } from './api.service';
-import { StatusEntity } from './status.entity';
+import { Inject, Injectable } from '@nestjs/common';
+import { IStatusRepository } from './IStatus.repository';
 import { CreateStatusDto } from './createStatus.dto';
 
 @Injectable()
 export class CreateStatusUseCase {
-  constructor(private readonly apiService: ApiService) {}
-  async execute(dto: CreateStatusDto): Promise<StatusEntity> {
-    return this.apiService.createStatus(dto);
+  constructor(
+    @Inject('IStatusRepository')
+    private readonly statusRepository: IStatusRepository,
+  ) {}
+
+  async execute(dto: CreateStatusDto, userId: string) {
+    const existingStatus = await this.statusRepository.getStatusByUserId(userId);
+
+    if (existingStatus) {
+      return await this.statusRepository.update(userId, dto);
+    }
+
+    return await this.statusRepository.create({
+      ...dto,
+      userId,
+    });
   }
 }

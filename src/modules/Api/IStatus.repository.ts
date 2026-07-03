@@ -1,7 +1,8 @@
-// status-repository.interface.ts
 import { StatusEntity } from './status.entity';
 
 export interface IStatusRepository {
-  getStatusById(id: number): Promise<StatusEntity | null>;
-  createStatus(data: Partial<StatusEntity>): Promise<StatusEntity>;
+  create(data: Partial<StatusEntity>): Promise<StatusEntity>;
+  getStatusByUserId(userId: string): Promise<StatusEntity | null>;
+  // getStatusById()
+  update(userId: string, data: Partial<StatusEntity>): Promise<StatusEntity>;
 }

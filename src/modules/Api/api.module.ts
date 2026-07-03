@@ -5,6 +5,7 @@ import { ApiService } from './api.service';
 import { StatusEntity } from './status.entity';
 import { GetStatusByIdUseCase } from './getStatus.use-case';
 import { CreateStatusUseCase } from './createStatus.use-case';
+import { StatusRepository } from './status.repository';
 
 @Module({
   imports: [TypeOrmModule.forFeature([StatusEntity])],
@@ -12,6 +13,11 @@ import { CreateStatusUseCase } from './createStatus.use-case';
   providers: [
     ApiService,
     GetStatusByIdUseCase,
+    CreateStatusUseCase,
+    {
+      provide: 'IStatusRepository',
+      useClass: StatusRepository,
+    },
     CreateStatusUseCase,
   ],
 })

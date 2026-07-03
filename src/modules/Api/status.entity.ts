@@ -1,16 +1,32 @@
-import { BaseEntity, Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToOne,
+  JoinColumn,
+  BaseEntity,
+} from 'typeorm';
 
-@Entity()
+@Entity('Status')
 export class StatusEntity extends BaseEntity {
   @PrimaryGeneratedColumn()
-  id: number | null;
+  id: number;
 
-  @Column('nvarchar', { nullable: true })
-  bio: string | null;
+  @Column({ nullable: true })
+  bio: string;
 
-  @Column('nvarchar', { nullable: true })
-  location: string | null;
+  @Column({ nullable: true })
+  location: string;
 
-  @Column('nvarchar', { nullable: true })
-  mail: string | null;
+  @Column({ nullable: true })
+  mail: string;
+
+  @Column({
+    name: 'UserId',
+    type: 'nvarchar',
+    length: 450,
+    nullable: false,
+    unique: true,
+  })
+  userId: string;
 }

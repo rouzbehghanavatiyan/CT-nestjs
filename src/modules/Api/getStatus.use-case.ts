@@ -1,15 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { ApiService } from './api.service';
-import { StatusEntity } from './status.entity';
+// getStatus.use-case.ts
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { IStatusRepository } from './IStatus.repository';
 
 @Injectable()
 export class GetStatusByIdUseCase {
-  constructor(private readonly apiService: ApiService) {}
+  constructor(
+    @Inject('IStatusRepository')
+    private readonly statusRepository: IStatusRepository,
+  ) {}
 
-  async execute(id: number): Promise<StatusEntity> {
-    const status = await this.apiService.getStatusById(id);
+  // async execute(id: number) {
+  //   const status = await this.statusRepository.getStatusById(id);
+  //   if (!status) {
+  //     throw new NotFoundException('Status not found');
+  //   }
+  //   return status;
+  // }
+
+  async executeByUserId(userId: string) {
+    const status = await this.statusRepository.getStatusByUserId(userId);
     if (!status) {
-      throw new NotFoundException(`Status with ID ${id} not found`);
+      return null;
     }
     return status;
   }
