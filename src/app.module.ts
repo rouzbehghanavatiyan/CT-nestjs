@@ -12,6 +12,7 @@ import { SocketModule } from './modules/socket/socket.module';
 import { StoreModule } from './modules/store/store.module';
 import { FileModule } from './modules/File/file.module';
 import { ApiModule } from './modules/Api/api.module';
+import { StatusEntity } from './modules/Api/status.entity';
 
 @Module({
   imports: [
@@ -20,7 +21,7 @@ import { ApiModule } from './modules/Api/api.module';
       envFilePath: `.env`,
     }),
     TypeOrmModule.forRoot(typeOrmConfig),
-    TypeOrmModule.forFeature([ChatEntity]),
+    TypeOrmModule.forFeature([ChatEntity,StatusEntity]),
     ChatModule,
     SocketModule,
     ApiModule,

@@ -21,6 +21,7 @@ export const typeOrmConfig: TypeOrmModuleOptions = {
   ],
   synchronize: true,
   options: {
+    encrypt: false,
     trustServerCertificate: true,
   },
 };
