@@ -139,6 +139,72 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
   }
 
+  @SubscribeMessage('add_invite_offline')
+  async handleAddInviteOffline(
+    @MessageBody() inviteData: any,
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      console.log('📩 add_invite_offline received:', inviteData);
+
+      if (!inviteData) {
+        return {
+          status: 1,
+          message: 'Invite data is empty',
+        };
+      }
+
+      const receiverUserId =
+        Number(inviteData?.reciveUserId) ||
+        Number(inviteData?.receiveUserId) ||
+        Number(inviteData?.receiverUserId) ||
+        Number(inviteData?.userId);
+
+      const senderUserId =
+        Number(inviteData?.senderUserId) ||
+        Number(inviteData?.fromUserId) ||
+        Number(inviteData?.userId);
+
+      const receiverSocketId = this.userSocketMap.get(receiverUserId);
+
+      console.log('receiverUserId:', receiverUserId);
+      console.log('receiverSocketId:', receiverSocketId);
+
+      /**
+       * اگر کاربر مقصد آنلاین بود، برایش ارسال کن
+       */
+      if (receiverSocketId) {
+        this.server.to(receiverSocketId).emit('receive_invite', inviteData);
+
+        return {
+          status: 0,
+          message: 'Invite sent to online user',
+          isOnline: true,
+          data: inviteData,
+        };
+      }
+
+      /**
+       * اگر کاربر مقصد آنلاین نبود، باز هم ACK موفق برگردان
+       * چون invite در دیتابیس قبلاً با addInvite ساخته شده.
+       */
+      return {
+        status: 0,
+        message: 'Invite created but receiver is offline',
+        isOnline: false,
+        data: inviteData,
+      };
+    } catch (error) {
+      console.log('❌ add_invite_offline error:', error);
+
+      return {
+        status: 1,
+        message: 'Socket invite failed',
+        error: error?.message,
+      };
+    }
+  }
+
   @SubscribeMessage('add_invite_optional')
   handleAddInviteOptional(@MessageBody() data: any) {
     this.optionalUserLis.set(data.userIdSender, data);
