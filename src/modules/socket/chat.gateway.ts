@@ -127,6 +127,27 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
   }
 
+  @SubscribeMessage('add_liked')
+  handleAddLiked(
+    @MessageBody() data: { userId: number; movieId: number },
+    @ConnectedSocket() client: Socket,
+  ) {
+    console.log('👍 add_liked_response:', data);
+    
+    this.server.emit('add_liked_response', data);
+  }
+
+  @SubscribeMessage('remove_liked')
+  handleRemoveLiked(
+    @MessageBody() data: { userId: number; movieId: number },
+    @ConnectedSocket() client: Socket,
+  ) {
+    console.log('👎 remove_liked_response:', data);
+    
+    this.server.emit('remove_liked_response', data);
+  }
+
+
   @SubscribeMessage('user_left_optional')
   handleUserLeftOptional(
     @MessageBody() data: any,
