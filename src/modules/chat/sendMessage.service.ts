@@ -10,14 +10,14 @@ export class SendMessageService {
     private readonly chatRepository: Repository<ChatEntity>,
   ) {}
 
-  async saveMessage(msgData: any): Promise<ChatEntity> {
+  async execute(msgData: any): Promise<ChatEntity> {
     const newMessage = this.chatRepository.create({
-      userProfile: msgData?.userProfile,
-      recieveId: msgData?.recieveId,
-      sender: Number(msgData?.sender),
-      time: msgData?.time,
-      userNameSender: msgData?.userNameSender,
-      title: msgData?.title,
+      // تبدیل صریح به String برای جلوگیری از خطای دیتابیس (SQL Server)
+      senderId: String(msgData.sender), 
+      receiveId: String(msgData.recieveId), 
+      content: msgData.content,
+      createdAt: new Date(),
+      isRead: false,
     });
 
     const response = await this.chatRepository.save(newMessage);

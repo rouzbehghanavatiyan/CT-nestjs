@@ -1,4 +1,3 @@
-// src/modules/chat/chat.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ChatEntity } from './chat.entity';
@@ -11,19 +10,18 @@ export class ChatService {
     private readonly chatRepository: Repository<ChatEntity>,
   ) {}
 
-  // متدهای مربوط به دریافت پیام‌ها
   async getUserMessageService(
-    sender: number,
-    recieveId: number,
+    senderId: string,
+    receiveId: string,
     skip: number = 0,
     take: number = 20,
   ): Promise<{ messages: ChatEntity[]; hasMore: boolean; total: number }> {
     try {
       const totalQuery = this.chatRepository
         .createQueryBuilder('chat')
-        .where('(chat.sender = :sender AND chat.recieveId = :recieveId)')
-        .orWhere('(chat.sender = :recieveId AND chat.recieveId = :sender)')
-        .setParameters({ sender, recieveId });
+        .where('(chat.senderId = :senderId AND chat.receiveId = :receiveId)')
+        .orWhere('(chat.senderId = :receiveId AND chat.receiveId = :senderId)')
+        .setParameters({ senderId, receiveId });
 
       const total = await totalQuery.getCount();
 
@@ -32,7 +30,7 @@ export class ChatService {
         .skip(skip)
         .take(take + 1)
         .getMany();
-      
+
       const hasMore = messages.length > take;
       if (hasMore) messages.pop();
 
@@ -41,24 +39,32 @@ export class ChatService {
         hasMore,
         total,
       };
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`Failed to fetch user messages: ${error.message}`);
     }
   }
 
-  async markMessagesAsRead(sender: number, receiver: number) {
+  async markMessagesAsRead(senderId: string, receiveId: string) {
     return await this.chatRepository.update(
-      { sender: sender, recieveId: receiver, isRead: false },
+      { senderId: senderId, receiveId: receiveId, isRead: false },
       { isRead: true },
     );
   }
 
-  async getMessagesByRecieveId(userIdLogin: number): Promise<any[]> {
+  async getMessagesByReceiveId(userIdLogin: string): Promise<any[]> {
     const query = `
-            select distinct [user].*, attachment.AttachmentName, attachment.[FileName], attachment.AttachmentType, attachment.Ext  From [User] [user]  
-            join chat_entity chat on [user].Id=chat.sender
-            join Attachments attachment on [user].Id=attachment.AttachmentId
-            where chat.recieveId=${userIdLogin}`;
+      SELECT DISTINCT 
+        [user].*, 
+        attachment.AttachmentName, 
+        attachment.[FileName], 
+        attachment.AttachmentType, 
+        attachment.Ext,
+        (SELECT COUNT(*) FROM chats c WHERE c.senderId = [user].Id AND c.receiveId = @0 AND c.isRead = 0) AS unreadCount
+      FROM [User] [user]  
+      JOIN chats chat ON [user].Id = chat.senderId
+      JOIN Attachments attachment ON [user].Id = attachment.AttachmentId
+      WHERE chat.receiveId = @0`;
+
     return await this.chatRepository.query(query, [userIdLogin]);
   }
 }
