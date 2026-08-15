@@ -13,6 +13,6 @@ module.exports = {
     migrationsDir: 'src/infrastructure/database/migrations',
     entitiesDir: 'src/domain/entities'
   },
-  synchronize: false,
+  synchronize: true,
   logging: true,
 };

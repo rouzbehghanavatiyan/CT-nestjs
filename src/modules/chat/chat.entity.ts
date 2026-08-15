@@ -1,42 +1,39 @@
 import {
-  BaseEntity,
+  Entity,
+  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  Entity,
-  OneToMany,
-  PrimaryGeneratedColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
-@Entity()
-export class ChatEntity extends BaseEntity {
+export interface ChatMessageContent {
+  type: 'text' | 'image' | 'audio' | 'video' | 'system';
+  text?: string;
+}
+
+@Entity('chats')
+@Index(['senderId', 'receiveId'])
+@Index(['createdAt'])
+export class ChatEntity {
   @PrimaryGeneratedColumn()
-  id: number | null;
+  id: number;
 
-  @Column('nvarchar', { nullable: true })
-  title: string | null;
+  @Column({ type: 'varchar', length: 36 })
+  senderId: string;
 
-  @Column('int', { nullable: true })
-  recieveId: number | null;
+  @Column({ type: 'varchar', length: 36 })
+  receiveId: string;
 
-  @Column('int', { nullable: true, default: 0 })
-  sender: number | null;
-
-  @Column({ type: 'varchar', nullable: true })
-  time: string;
+  @Column({ type: 'simple-json' })
+  content: ChatMessageContent;
 
   @Column({ type: 'bit', default: false })
   isRead: boolean;
 
-  @Column({ type: 'text', nullable: true })
-  userProfile: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  userNameSender: string | null;
-
-  @CreateDateColumn({ type: 'datetime' })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'datetime' })
+  @UpdateDateColumn()
   updatedAt: Date;
 }

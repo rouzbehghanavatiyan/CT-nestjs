@@ -5,12 +5,12 @@ import { GetUser } from 'src/modules/auth/user.decorator';
 
 @Controller('chat')
 export class ChatController {
-  constructor(private readonly chatService: ChatService) { }
+  constructor(private readonly chatService: ChatService) {}
 
   @Get('userMessages')
   async getUserMessages(
-    @Query('userIdLogin') userIdLogin: number,
-    @Query('userIdSender') userIdSender: number,
+    @Query('userIdLogin') userIdLogin: string, // تبدیل به string (GUID)
+    @Query('userIdSender') userIdSender: string, // تبدیل به string (GUID)
     @Query('skip') skip: number = 0,
     @Query('take') take: number = 10,
   ) {
@@ -18,8 +18,8 @@ export class ChatController {
       const response = await this.chatService.getUserMessageService(
         userIdLogin,
         userIdSender,
-        skip,
-        take,
+        Number(skip) || 0,
+        Number(take) || 10,
       );
 
       console.log(response);
@@ -35,19 +35,21 @@ export class ChatController {
 
   @UseGuards(JwtAuthGuard)
   @Get('allUserMessagese')
-  async getMessagesByRecieveId(@Query('userIdLogin') userIdLogin: number) {
+  async getMessagesByReceiveId(@Query('userIdLogin') userIdLogin: string) {
     try {
       const response: any =
-        await this.chatService.getMessagesByRecieveId(userIdLogin);
+        await this.chatService.getMessagesByReceiveId(userIdLogin); // اصلاح نام متد فراخوانی شده از سرویس
+      
       const filteredResponse = response.map((message: any) => ({
-        userProfile: message.userProfile,
+        userProfile: message.userProfile, // از جدول User می‌آید
         attachmentName: message.AttachmentName,
         ext: message.Ext,
         fileName: message.FileName,
-        userNameSender: message.UserName,
+        userNameSender: message.UserName, // از جدول User می‌آید
         attachmentType: message.AttachmentType,
-        sender: message.Id,
+        sender: message.Id, // فرمت این فیلد حالا از دیتابیس string (GUID) برمی‌گردد
       }));
+      
       return {
         status: 0,
         data: filteredResponse,
@@ -61,9 +63,8 @@ export class ChatController {
   @Get('getUserProfile')
   getProfile(@GetUser() user: any) {
     return {
-      userId: user.userId,
+      userId: user.userId, // در دکوراتور نیز انتظار می‌رود این مقدار string باشد
       username: user.username,
     };
   }
-
 }

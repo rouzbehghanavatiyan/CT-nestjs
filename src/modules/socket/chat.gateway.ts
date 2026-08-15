@@ -23,7 +23,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private readonly userList: Map<string, any> = new Map();
   private readonly optionalUserLis: Map<string, any> = new Map();
-  private readonly userSocketMap: Map<number, string> = new Map();
+  // تغییر به string برای پشتیبانی از GUID
+  private readonly userSocketMap: Map<string, string> = new Map();
 
   constructor(
     private readonly chatService: ChatService,
@@ -41,7 +42,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('register_user')
   handleRegisterUser(
-    @MessageBody() userId: number,
+    @MessageBody() userId: string, // تغییر تایپ به string
     @ConnectedSocket() client: Socket,
   ) {
     this.userSocketMap.set(userId, client.id);
@@ -53,26 +54,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() msgData: any,
     @ConnectedSocket() client: Socket,
   ) {
-    // 1. ذخیره در دیتابیس
-    const saveMessages = await this.sendMessageService.saveMessage(msgData);
+    const saveMessages = await this.sendMessageService.execute(msgData);
     console.log(msgData);
 
-    // 2. ارسال به همه (Broadcast) به جز خود فرستنده
     client.broadcast.emit('receive_message', {
       id: saveMessages?.id,
       userProfile: msgData?.userProfile,
       recieveId: msgData?.recieveId,
-      sender: Number(msgData?.sender),
+      sender: String(msgData?.sender), // کست به String
       time: msgData?.time,
       userNameSender: msgData?.userNameSender,
       title: msgData?.title,
     });
 
-    // 3. ارسال نوتیفیکیشن به گیرنده خاص
-    const receiverSocketId = this.userSocketMap.get(Number(msgData.recieveId));
+    const receiverSocketId = this.userSocketMap.get(String(msgData.recieveId));
     if (receiverSocketId) {
       this.server.to(receiverSocketId).emit('new_message_notification', {
-        senderId: Number(msgData.sender),
+        senderId: String(msgData.sender),
         senderName: msgData.userNameSender,
         message: msgData.title,
         timestamp: new Date().toISOString(),
@@ -84,9 +82,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       type: 'message',
       title: 'پیام جدید',
       message: `پیام جدید از ${msgData.userNameSender}`,
-      senderId: Number(msgData.sender),
+      senderId: String(msgData.sender),
       senderName: msgData.userNameSender,
-      receiverId: Number(msgData.recieveId),
+      receiverId: String(msgData.recieveId),
       chatData: {
         id: saveMessages?.id,
         title: msgData.title,
@@ -94,10 +92,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       },
     });
   }
-
   @SubscribeMessage('mark_messages_as_read')
   async handleMarkAsRead(
-    @MessageBody() data: { sender: number; receiver: number },
+    @MessageBody() data: { sender: string; receiver: string },
   ) {
     try {
       await this.chatService.markMessagesAsRead(data.sender, data.receiver);
@@ -128,6 +125,26 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
   }
 
+  @SubscribeMessage('add_liked')
+  handleAddLiked(
+    @MessageBody() data: { userId: string; movieId: number }, // تغییر userId به string
+    @ConnectedSocket() client: Socket,
+  ) {
+    console.log('👍 add_liked_response:', data);
+
+    this.server.emit('add_liked_response', data);
+  }
+
+  @SubscribeMessage('remove_liked')
+  handleRemoveLiked(
+    @MessageBody() data: { userId: string; movieId: number }, // تغییر userId به string
+    @ConnectedSocket() client: Socket,
+  ) {
+    console.log('👎 remove_liked_response:', data);
+
+    this.server.emit('remove_liked_response', data);
+  }
+
   @SubscribeMessage('user_left_optional')
   handleUserLeftOptional(
     @MessageBody() data: any,
@@ -140,12 +157,79 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
   }
 
+  @SubscribeMessage('add_invite_offline')
+  async handleAddInviteOffline(
+    @MessageBody() inviteData: any,
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      console.log('📩 add_invite_offline received:', inviteData);
+
+      if (!inviteData) {
+        return {
+          status: 1,
+          message: 'Invite data is empty',
+        };
+      }
+
+      // استفاده از String به جای Number برای تطابق با GUID
+      const receiverUserId =
+        String(inviteData?.reciveUserId || '') ||
+        String(inviteData?.receiveUserId || '') ||
+        String(inviteData?.receiverUserId || '') ||
+        String(inviteData?.userId || '');
+
+      const senderUserId =
+        String(inviteData?.senderUserId || '') ||
+        String(inviteData?.fromUserId || '') ||
+        String(inviteData?.userId || '');
+
+      const receiverSocketId = this.userSocketMap.get(receiverUserId);
+
+      console.log('receiverUserId:', receiverUserId);
+      console.log('receiverSocketId:', receiverSocketId);
+
+      /**
+       * اگر کاربر مقصد آنلاین بود، برایش ارسال کن
+       */
+      if (receiverSocketId) {
+        this.server.to(receiverSocketId).emit('receive_invite', inviteData);
+
+        return {
+          status: 0,
+          message: 'Invite sent to online user',
+          isOnline: true,
+          data: inviteData,
+        };
+      }
+
+      /**
+       * اگر کاربر مقصد آنلاین نبود، باز هم ACK موفق برگردان
+       * چون invite در دیتابیس قبلاً با addInvite ساخته شده.
+       */
+      return {
+        status: 0,
+        message: 'Invite created but receiver is offline',
+        isOnline: false,
+        data: inviteData,
+      };
+    } catch (error: any) {
+      console.log('❌ add_invite_offline error:', error);
+
+      return {
+        status: 1,
+        message: 'Socket invite failed',
+        error: error?.message,
+      };
+    }
+  }
+
   @SubscribeMessage('add_invite_optional')
   handleAddInviteOptional(@MessageBody() data: any) {
     this.optionalUserLis.set(data.userIdSender, data);
     this.server.emit('add_invite_optional_response', data);
 
-    const targetSocketId = this.userSocketMap.get(data.userIdReciever);
+    const targetSocketId = this.userSocketMap.get(String(data.userIdReciever));
     if (targetSocketId) {
       this.server.to(targetSocketId).emit('add_invite_optional_target', data);
     }
@@ -155,7 +239,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const userData = this.userList.get(client.id);
     if (userData) {
       const userId = userData.userIdJoin;
-      this.userSocketMap.delete(userId);
+      this.userSocketMap.delete(String(userId));
       this.cleanupUserOptional(userId);
     }
     this.userList.delete(client.id);
@@ -167,15 +251,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private cleanupUserOptional(userId: any) {
     for (const [key, value] of this.userList.entries()) {
-      if (value.userIdJoin === userId) {
+      if (String(value.userIdJoin) === String(userId)) {
         this.userList.delete(key);
         break;
       }
     }
     for (const [userIdSender, inviteData] of this.optionalUserLis.entries()) {
       if (
-        inviteData.userIdSender === userId ||
-        inviteData.userIdReciever === userId
+        String(inviteData.userIdSender) === String(userId) ||
+        String(inviteData.userIdReciever) === String(userId)
       ) {
         this.optionalUserLis.delete(userIdSender);
       }

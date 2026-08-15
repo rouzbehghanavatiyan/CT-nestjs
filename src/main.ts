@@ -1,3 +1,4 @@
+import './alias'; 
 import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
@@ -5,6 +6,7 @@ import helmet from 'helmet';
 import path, { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import ffmpeg from 'fluent-ffmpeg';
+import 'module-alias/register';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
