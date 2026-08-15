@@ -14,6 +14,7 @@ import { SendMessageService } from 'src/modules/chat/sendMessage.service';
 @WebSocketGateway({
   cors: {
     origin: '*',
+    credentials: true,
   },
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {

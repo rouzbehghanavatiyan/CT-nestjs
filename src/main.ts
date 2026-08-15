@@ -21,7 +21,8 @@ async function bootstrap() {
   console.log('FFmpeg Path:', ffmpegPath);
 
   app.enableCors({
-    origin: '*',
+    origin: true,
+    // origin: "*",
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     credentials: true,
   });
@@ -42,8 +43,8 @@ async function bootstrap() {
 
   // app.useGlobalFilters(new GlobalExceptionFilter());
 
-  const port = process.env.LISTEN_PORT || 4000;
-  await app.listen(port);
+  const port = Number(process.env.LISTEN_PORT) || 4000;
+  await app.listen(4005, '0.0.0.0');
 
   logger.log(`Application running on port ${port}`);
   logger.log(`Static files served from: ${join(__dirname, '..', 'uploads')}`);
