@@ -1,4 +1,4 @@
-import './alias'; 
+import './alias';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
@@ -46,7 +46,7 @@ async function bootstrap() {
   // app.useGlobalFilters(new GlobalExceptionFilter());
 
   const port = Number(process.env.LISTEN_PORT) || 4000;
-  await app.listen(4005, '0.0.0.0');
+  await app.listen(port, '0.0.0.0');
 
   logger.log(`Application running on port ${port}`);
   logger.log(`Static files served from: ${join(__dirname, '..', 'uploads')}`);
