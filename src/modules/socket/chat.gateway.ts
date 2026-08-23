@@ -42,13 +42,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('register_user')
   handleRegisterUser(
-    @MessageBody() userId: string, // تغییر تایپ به string
+    @MessageBody() userId: any,
     @ConnectedSocket() client: Socket,
   ) {
-    this.userSocketMap.set(userId, client.id);
-    console.log(`User ${userId} registered with socket ${client.id}`);
+    const strUserId = String(userId);
+    this.userSocketMap.set(strUserId, client.id);
+    console.log(`User ${strUserId} registered with socket ${client.id}`);
   }
-
   @SubscribeMessage('send_message')
   async handleSendMessage(
     @MessageBody() msgData: any,
