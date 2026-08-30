@@ -101,7 +101,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
 
     const receiverSocketId = this.userSocketMap.get(receiverStr);
-    const receiverActivePeer = this.activeChatMap.get(receiverStr);
 
     if (receiverSocketId) {
       this.server.to(receiverSocketId).emit('receive_message', messagePayload);
@@ -122,13 +121,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         receiverId: receiverStr,
         chatData: messagePayload,
       });
-    }
-    if (!receiverSocketId || receiverActivePeer !== senderStr) {
+    } else {
       const senderName = msgData?.userNameSender || 'کاربر';
       const notifBody = `${senderName}: ${contentText}`;
-      // const userToken = client.handshake.headers.authorization?.split(' ')[1];
       void this.pushNotificationService.sendToUser(receiverStr, notifBody);
     }
+
     client.emit('message_sent_ack', messagePayload);
   }
 
@@ -274,7 +272,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       Array.from(this.userList.values()),
     );
   }
-  // داخل کلاس ChatGateway
 
   private cleanupUserOptional(userId: string | number) {
     const targetUserId = String(userId);
