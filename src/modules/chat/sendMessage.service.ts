@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ChatEntity } from './chat.entity';
+import { ChatEntity, ChatMessageContent } from './chat.entity';
 
 @Injectable()
 export class SendMessageService {
@@ -11,16 +11,25 @@ export class SendMessageService {
   ) {}
 
   async execute(msgData: any): Promise<ChatEntity> {
+    const senderId = String(msgData?.sender ?? '').trim();
+    const receiveId = String(msgData?.recieveId ?? '').trim();
+    const text = String(msgData?.content ?? '').trim();
+
+    if (!senderId || !receiveId || !text) {
+      throw new BadRequestException('sender, recieveId و content الزامی هستند');
+    }
+    const content: ChatMessageContent = {
+      type: 'text',
+      text,
+    };
+
     const newMessage = this.chatRepository.create({
-      // تبدیل صریح به String برای جلوگیری از خطای دیتابیس (SQL Server)
-      senderId: String(msgData.sender), 
-      receiveId: String(msgData.recieveId), 
-      content: msgData.content,
-      createdAt: new Date(),
+      senderId,
+      receiveId,
+      content,
       isRead: false,
     });
 
-    const response = await this.chatRepository.save(newMessage);
-    return response;
+    return this.chatRepository.save(newMessage);
   }
 }

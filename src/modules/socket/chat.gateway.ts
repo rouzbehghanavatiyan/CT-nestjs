@@ -22,7 +22,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   server: Server;
 
   private readonly userList: Map<string, any> = new Map();
-  private readonly optionalUserList: Map<string, any> = new Map(); // اصلاح نام
+  private readonly optionalUserList: Map<string, any> = new Map();
   private readonly userSocketMap: Map<string, string> = new Map();
 
   constructor(
@@ -35,7 +35,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: Socket) {
-    // ✅ اول پردازش دیسکانکت، بعد حذف از لیست اصلی
+    // اول پردازش دیسکانکت، بعد حذف از لیست اصلی
     this.handleUserDisconnectLogic(client);
     this.userList.delete(client.id);
     console.log(`Client disconnected: ${client.id}`);
@@ -54,42 +54,61 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('send_message')
   async handleSendMessage(
     @MessageBody() msgData: any,
-    @ConnectedSocket() client: Socket, // 🟢 اضافه کردن کلاینت برای دسترسی به سوکت فرستنده
+    @ConnectedSocket() client: Socket,
   ) {
-    const saveMessages = await this.sendMessageService.execute(msgData);
+    // اعتبارسنجی حداقلی ورودی
+    if (
+      !msgData?.sender ||
+      !msgData?.recieveId ||
+      !String(msgData?.content ?? '').trim()
+    ) {
+      client.emit('send_message_error', {
+        message: 'sender, recieveId و content الزامی هستند',
+      });
+      return;
+    }
 
-    const senderStr = String(msgData?.sender);
-    const receiverStr = String(msgData?.recieveId);
+    let saveMessages;
+    try {
+      saveMessages = await this.sendMessageService.execute(msgData);
+    } catch (error: any) {
+      client.emit('send_message_error', {
+        message: error?.message || 'خطا در ذخیره پیام',
+      });
+      return;
+    }
+
+    const senderStr = String(msgData.sender);
+    const receiverStr = String(msgData.recieveId);
+
+    // ChatEntity.content یک آبجکت {type, text} است؛ برای کلاینت‌ها
+    // (که فعلا فقط پیام متنی رندر می‌کنند) متن ساده را بیرون می‌کشیم
+    const contentText = saveMessages.content?.text ?? '';
 
     const messagePayload = {
-      id: saveMessages?.id,
+      id: saveMessages.id,
+      tempId: msgData?.tempId,
       userProfile: msgData?.userProfile,
-      recieveId: receiverStr,
-      sender: senderStr,
-      time: msgData?.time,
+      senderId: senderStr,
+      receiveId: receiverStr,
+      content: contentText,
+      createdAt: saveMessages.createdAt.toISOString(),
       userNameSender: msgData?.userNameSender,
-      title: msgData?.title,
+      isRead: false,
     };
 
-    // 1. ارسال پیام به خود فرستنده (تا در UI تایید شود)
-    client.emit('receive_message', messagePayload);
-
-    // 2. پیدا کردن سوکت گیرنده و ارسال فقط برای او
     const receiverSocketId = this.userSocketMap.get(receiverStr);
 
     if (receiverSocketId) {
-      // ارسال پیام چت
       this.server.to(receiverSocketId).emit('receive_message', messagePayload);
 
-      // ارسال نوتیفیکیشن پاپ‌آپ فقط به گیرنده
       this.server.to(receiverSocketId).emit('new_message_notification', {
         senderId: senderStr,
         senderName: msgData.userNameSender,
-        message: msgData.title,
-        timestamp: new Date().toISOString(),
+        message: contentText,
+        timestamp: saveMessages.createdAt.toISOString(),
       });
 
-      // ارسال نوتیفیکیشن سیستم فقط به گیرنده (جلوگیری از درز اطلاعات به کل کاربران)
       this.server.to(receiverSocketId).emit('notification_message', {
         type: 'message',
         title: 'پیام جدید',
@@ -100,6 +119,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         chatData: messagePayload,
       });
     }
+
+    // به خود فرستنده تایید ارسال (شامل id واقعی دیتابیس) برگردانده می‌شود
+    // تا کلاینت پیام optimistic خودش را با tempId reconcile کند
+    client.emit('message_sent_ack', messagePayload);
   }
 
   @SubscribeMessage('mark_messages_as_read')
@@ -112,7 +135,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // فقط به فرستنده‌ی پیام خبر بده که پیامش خوانده شد
       const senderSocketId = this.userSocketMap.get(String(data.sender));
       if (senderSocketId) {
-        this.server.to(senderSocketId).emit('messages_read_confirmation', {
+        this.server.to(senderSocketId).emit('messages_read', {
           sender: data.sender,
           receiver: data.receiver,
         });
@@ -159,7 +182,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { status: 1, message: 'Invite data is empty' };
       }
 
-      // ✅ استفاده از ?? (Nullish Coalescing) برای جلوگیری از خطای مقدار 0
+      // استفاده از ?? برای جلوگیری از خطای مقدار 0
       const receiverUserId = String(
         inviteData?.receiverUserId ??
           inviteData?.receiveUserId ??
@@ -187,7 +210,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data: inviteData,
       };
     } catch (error: any) {
-      console.error('❌ add_invite_offline error:', error.message);
+      console.error('add_invite_offline error:', error.message);
       return {
         status: 1,
         message: 'Socket invite failed',
@@ -210,23 +233,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // --- Private Helpers ---
 
   private handleUserDisconnectLogic(client: Socket) {
-    // 1. گشتن در مپ سوکت‌ها برای پیدا کردن و حذف تضمینی کاربر
+    // گشتن در مپ سوکت‌ها برای پیدا کردن و حذف تضمینی کاربر
     let disconnectedUserId: string | null = null;
 
     for (const [userId, socketId] of this.userSocketMap.entries()) {
       if (socketId === client.id) {
         disconnectedUserId = userId;
-        this.userSocketMap.delete(userId); // حذف تضمینی از مپ
+        this.userSocketMap.delete(userId);
         break;
       }
     }
 
-    // 2. پاکسازی لیست آپشنال اگر کاربری پیدا شد
     if (disconnectedUserId) {
       this.cleanupUserOptional(disconnectedUserId);
     }
 
-    // پخش رویداد آپدیت لیست به بقیه
     this.server.emit(
       'user_entered_optional_response',
       Array.from(this.userList.values()),
