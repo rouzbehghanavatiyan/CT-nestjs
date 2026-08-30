@@ -1,85 +1,47 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { GoogleAuth } from 'google-auth-library';
-import * as path from 'path';
+import { Injectable, Logger } from '@nestjs/common';
 
+/**
+ * این سرویس با سرویس/میکروسرویس نوتیفیکیشن (همان endpointـی که در فرانت
+ * با EXPO_PUBLIC_NOTIF صدا زده می‌شود، مثل /subscribe و /send) از سمت
+ * سرور (server-to-server) صحبت می‌کند. علتش این است که فقط خودِ بک‌اند
+ * می‌داند در لحظه‌ی ارسال پیام، سوکت کاربر گیرنده وصل هست یا نه (یعنی
+ * کاربر واقعا «توی اپ» هست یا نه)؛ فرستنده هیچ‌وقت این اطلاعات را ندارد.
+ *
+ * نکته: مقدار NOTIF_SERVICE_URL باید در .env بک‌اند ست شود و به همان
+ * سرویس نوتیفیکیشنی اشاره کند که موبایل با EXPO_PUBLIC_NOTIF به آن وصل
+ * می‌شود (چون توکن‌های Push آنجا با subscribe ذخیره شده‌اند).
+ */
 @Injectable()
-export class PushNotificationService implements OnModuleInit {
+export class PushNotificationService {
   private readonly logger = new Logger(PushNotificationService.name);
-  private auth: GoogleAuth;
+  private readonly notifBaseUrl = process.env.NOTIF_SERVICE_URL;
 
-  onModuleInit() {
-    const keyFilePath = path.join(
-      process.cwd(),
-      'src',
-      'firebase-adminsdk.json',
-    );
-
-    this.auth = new GoogleAuth({
-      keyFile: keyFilePath,
-      scopes: ['https://www.googleapis.com/auth/firebase.messaging'],
-    });
-  }
-
-  /**
-   * دریافت Access Token معتبر از گوگل (با مدیریت داخلی انقضا و کش توسط GoogleAuth)
-   */
-  private async getAccessToken(): Promise<string | null> {
-    try {
-      const client = await this.auth.getClient();
-      const accessToken = await client.getAccessToken();
-      return accessToken.token || null;
-    } catch (error: any) {
-      this.logger.error(
-        `خطا در دریافت Access Token از گوگل: ${error?.message || error}`,
+  async sendToUser(userId: string | number, message: string): Promise<void> {
+    if (!this.notifBaseUrl) {
+      this.logger.warn(
+        'NOTIF_SERVICE_URL در env تنظیم نشده؛ ارسال نوتیفیکیشن نادیده گرفته شد.',
       );
-      return null;
+      return;
     }
-  }
 
-  /**
-   * ارسال نوتیفیکیشن به کاربر از طریق Gateway / Cloudflare Worker
-   */
-  async sendToUser(
-    userId: string | number,
-    message: string,
-    fcmToken?: string, // در صورت نیاز به ارسال مستقیم FCM Token
-  ): Promise<void> {
     try {
-      // ۱. دریافت توکن معتبر گوگل
-      const googleToken = await this.getAccessToken();
-
-      if (!googleToken) {
-        this.logger.error(
-          `عدم امکان ارسال نوتیفیکیشن به کاربر ${userId}: توکن گوگل دریافت نشد.`,
-        );
-        return;
-      }
-
-      // ۲. ارسال درخواست به Gateway
-      const response = await fetch('https://gateway.clashtalent.com/send', {
+      const response = await fetch(`${this.notifBaseUrl}/send`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${googleToken}`, // ارسال توکن گوگل در هدر
-        },
-        body: JSON.stringify({
-          userId: String(userId),
-          message,
-          ...(fcmToken && { fcmToken }),
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, message }),
       });
 
       if (!response.ok) {
         const text = await response.text().catch(() => '');
         this.logger.error(
-          `ارسال نوتیفیکیشن به کاربر ${userId} ناموفق بود (${response.status}): ${text}`,
+          `ارسال نوتیفیکیشن به کاربر ${userId} ناموفق بود: ${response.status} ${text}`,
         );
-      } else {
-        this.logger.log(`نوتیفیکیشن با موفقیت به کاربر ${userId} ارسال شد.`);
       }
     } catch (error: any) {
+      // شکست در ارسال نوتیفیکیشن نباید مانع ذخیره/ارسال خودِ پیام چت شود؛
+      // فقط لاگ می‌کنیم و کار عادی چت ادامه پیدا می‌کند.
       this.logger.error(
-        `خطا در ارتباط با سرویس نوتیفیکیشن برای کاربر ${userId}: ${error?.message || error}`,
+        `خطا در ارسال نوتیفیکیشن به کاربر ${userId}: ${error?.message || error}`,
       );
     }
   }
