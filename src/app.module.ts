@@ -21,7 +21,7 @@ import { StatusEntity } from './modules/Api/status.entity';
       envFilePath: `.env`,
     }),
     TypeOrmModule.forRoot(typeOrmConfig),
-    TypeOrmModule.forFeature([ChatEntity,StatusEntity]),
+    TypeOrmModule.forFeature([ChatEntity, StatusEntity]),
     ChatModule,
     SocketModule,
     ApiModule,

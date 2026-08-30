@@ -4,11 +4,12 @@ import { ChatController } from 'src/modules/chat/chat.controller';
 import { ChatEntity } from 'src/modules/chat/chat.entity';
 import { ChatService } from 'src/modules/chat/chat.service';
 import { SendMessageService } from 'src/modules/chat/sendMessage.service';
+import { PushNotificationService } from './pushNotification.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([ChatEntity])],
-  controllers:[ChatController],
-  providers: [ChatService, SendMessageService],
-  exports: [ChatService, SendMessageService], 
+  controllers: [ChatController],
+  providers: [ChatService, SendMessageService, PushNotificationService],
+  exports: [ChatService, SendMessageService, PushNotificationService],
 })
 export class ChatModule {}

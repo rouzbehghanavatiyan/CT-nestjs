@@ -10,6 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { ChatService } from 'src/modules/chat/chat.service';
 import { SendMessageService } from 'src/modules/chat/sendMessage.service';
+import { PushNotificationService } from '../chat/pushNotification.service';
 
 @WebSocketGateway({
   cors: {
@@ -24,10 +25,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly userList: Map<string, any> = new Map();
   private readonly optionalUserList: Map<string, any> = new Map();
   private readonly userSocketMap: Map<string, string> = new Map();
+  private readonly activeChatMap: Map<string, string> = new Map(); // userId -> activePeerId
 
   constructor(
     private readonly chatService: ChatService,
     private readonly sendMessageService: SendMessageService,
+    private readonly pushNotificationService: PushNotificationService,
   ) {}
 
   handleConnection(client: Socket) {
@@ -98,6 +101,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
 
     const receiverSocketId = this.userSocketMap.get(receiverStr);
+    const receiverActivePeer = this.activeChatMap.get(receiverStr);
 
     if (receiverSocketId) {
       this.server.to(receiverSocketId).emit('receive_message', messagePayload);
@@ -119,9 +123,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         chatData: messagePayload,
       });
     }
-
-    // به خود فرستنده تایید ارسال (شامل id واقعی دیتابیس) برگردانده می‌شود
-    // تا کلاینت پیام optimistic خودش را با tempId reconcile کند
+    if (!receiverSocketId || receiverActivePeer !== senderStr) {
+      const senderName = msgData?.userNameSender || 'کاربر';
+      const notifBody = `${senderName}: ${contentText}`;
+      // const userToken = client.handshake.headers.authorization?.split(' ')[1];
+      void this.pushNotificationService.sendToUser(receiverStr, notifBody);
+    }
     client.emit('message_sent_ack', messagePayload);
   }
 
@@ -142,6 +149,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     } catch (error) {
       console.error('Error marking messages as read', error);
+    }
+  }
+
+  @SubscribeMessage('join_chat')
+  handleJoinChat(@MessageBody() data: { userId: string; peerId: string }) {
+    if (data?.userId && data?.peerId) {
+      this.activeChatMap.set(String(data.userId), String(data.peerId));
+    }
+  }
+
+  @SubscribeMessage('leave_chat')
+  handleLeaveChat(@MessageBody() userId: string) {
+    if (userId) {
+      this.activeChatMap.delete(String(userId));
     }
   }
 
@@ -253,6 +274,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       Array.from(this.userList.values()),
     );
   }
+  // داخل کلاس ChatGateway
 
   private cleanupUserOptional(userId: string | number) {
     const targetUserId = String(userId);
