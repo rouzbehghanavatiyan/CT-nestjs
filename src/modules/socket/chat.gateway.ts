@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { ChatService } from 'src/modules/chat/chat.service';
 import { SendMessageService } from 'src/modules/chat/sendMessage.service';
 import { PushNotificationService } from '../chat/pushNotification.service';
+import { ChatEntity } from '../chat/chat.entity';
 
 @WebSocketGateway({
   cors: {
@@ -37,7 +38,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: Socket) {
-    // اول پردازش دیسکانکت، بعد حذف از لیست اصلی
     this.handleUserDisconnectLogic(client);
     this.userList.delete(client.id);
     console.log(`Client disconnected: ${client.id}`);
@@ -58,7 +58,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() msgData: any,
     @ConnectedSocket() client: Socket,
   ) {
-    // اعتبارسنجی حداقلی ورودی
     if (
       !msgData?.sender ||
       !msgData?.recieveId ||
@@ -70,21 +69,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    let saveMessages;
+    let saveMessages: ChatEntity;
     try {
       saveMessages = await this.sendMessageService.execute(msgData);
     } catch (error: any) {
       client.emit('send_message_error', {
-        message: error?.message || 'خطا در ذخیره پیام',
+        message:
+          error?.response?.message ||
+          error?.message ||
+          'خطا در ذخیره و ارسال پیام',
+        isBlocked: error?.status === 403,
       });
       return;
     }
 
     const senderStr = String(msgData.sender);
     const receiverStr = String(msgData.recieveId);
-
-    // ChatEntity.content یک آبجکت {type, text} است؛ برای کلاینت‌ها
-    // (که فعلا فقط پیام متنی رندر می‌کنند) متن ساده را بیرون می‌کشیم
     const contentText = saveMessages.content?.text ?? '';
 
     const messagePayload = {
@@ -103,30 +103,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     if (receiverSocketId) {
       this.server.to(receiverSocketId).emit('receive_message', messagePayload);
-
       this.server.to(receiverSocketId).emit('new_message_notification', {
         senderId: senderStr,
         senderName: msgData.userNameSender,
         message: contentText,
         timestamp: saveMessages.createdAt.toISOString(),
       });
-
-      this.server.to(receiverSocketId).emit('notification_message', {
-        type: 'message',
-        title: 'پیام جدید',
-        message: `پیام جدید از ${msgData.userNameSender}`,
-        senderId: senderStr,
-        senderName: msgData.userNameSender,
-        receiverId: receiverStr,
-        chatData: messagePayload,
-      });
     } else {
-      // گیرنده سوکت متصل ندارد -> یعنی الان توی اپ نیست
-      // (نه اینکه فقط توی صفحه چت نیست) -> پوش‌نوتیفیکیشن بفرست
       const senderName = msgData?.userNameSender || 'کاربر';
       const notifBody = `${senderName}: ${contentText}`;
-      // منتظر نتیجه نمی‌مانیم تا ارسال/تایید پیام معطل نشود؛
-      // خطای احتمالی داخل خودِ سرویس لاگ می‌شود
       void this.pushNotificationService.sendToUser(receiverStr, notifBody, {
         type: 'chat_message',
         senderId: senderStr,
@@ -135,8 +120,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     }
 
-    // به خود فرستنده تایید ارسال (شامل id واقعی دیتابیس) برگردانده می‌شود
-    // تا کلاینت پیام optimistic خودش را با tempId reconcile کند
     client.emit('message_sent_ack', messagePayload);
   }
 
