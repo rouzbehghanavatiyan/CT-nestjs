@@ -1,5 +1,6 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { StatusEntity } from 'src/modules/Api/status.entity';
+import { UserBlock } from 'src/modules/Api/userBlock.entity';
 import { ChatEntity } from 'src/modules/chat/chat.entity';
 import { VideoDraftEntity } from 'src/modules/File/VideoDraftEntity';
 import { Payment } from 'src/modules/store/paymant.entity';
@@ -18,6 +19,7 @@ export const typeOrmConfig: TypeOrmModuleOptions = {
     StatusEntity,
     Payment,
     VideoDraftEntity,
+    UserBlock,
   ],
   synchronize: true,
   options: {

@@ -25,7 +25,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly userList: Map<string, any> = new Map();
   private readonly optionalUserList: Map<string, any> = new Map();
   private readonly userSocketMap: Map<string, string> = new Map();
-  private readonly activeChatMap: Map<string, string> = new Map(); // userId -> activePeerId
 
   constructor(
     private readonly chatService: ChatService,
@@ -122,11 +121,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         chatData: messagePayload,
       });
     } else {
+      // گیرنده سوکت متصل ندارد -> یعنی الان توی اپ نیست
+      // (نه اینکه فقط توی صفحه چت نیست) -> پوش‌نوتیفیکیشن بفرست
       const senderName = msgData?.userNameSender || 'کاربر';
       const notifBody = `${senderName}: ${contentText}`;
-      void this.pushNotificationService.sendToUser(receiverStr, notifBody);
+      // منتظر نتیجه نمی‌مانیم تا ارسال/تایید پیام معطل نشود؛
+      // خطای احتمالی داخل خودِ سرویس لاگ می‌شود
+      void this.pushNotificationService.sendToUser(receiverStr, notifBody, {
+        type: 'chat_message',
+        senderId: senderStr,
+        senderName: msgData?.userNameSender,
+        senderProfile: msgData?.userProfile,
+      });
     }
 
+    // به خود فرستنده تایید ارسال (شامل id واقعی دیتابیس) برگردانده می‌شود
+    // تا کلاینت پیام optimistic خودش را با tempId reconcile کند
     client.emit('message_sent_ack', messagePayload);
   }
 
@@ -147,20 +157,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     } catch (error) {
       console.error('Error marking messages as read', error);
-    }
-  }
-
-  @SubscribeMessage('join_chat')
-  handleJoinChat(@MessageBody() data: { userId: string; peerId: string }) {
-    if (data?.userId && data?.peerId) {
-      this.activeChatMap.set(String(data.userId), String(data.peerId));
-    }
-  }
-
-  @SubscribeMessage('leave_chat')
-  handleLeaveChat(@MessageBody() userId: string) {
-    if (userId) {
-      this.activeChatMap.delete(String(userId));
     }
   }
 
