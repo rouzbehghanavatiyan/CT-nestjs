@@ -12,6 +12,10 @@ import { ChatService } from 'src/modules/chat/chat.service';
 import { SendMessageService } from 'src/modules/chat/sendMessage.service';
 import { PushNotificationService } from '../chat/pushNotification.service';
 import { ChatEntity } from '../chat/chat.entity';
+import { GapGptService } from '../chat/gapgpt.service';
+
+const GAPGPT_BOT_ID = 'gapgpt_bot';
+const GAPGPT_BOT_NAME = 'GapGPT Bot';
 
 @WebSocketGateway({
   cors: {
@@ -23,6 +27,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
+  private readonly botHistory: Map<
+    string,
+    { role: 'user' | 'assistant'; content: string }[]
+  > = new Map();
+
   private readonly userList: Map<string, any> = new Map();
   private readonly optionalUserList: Map<string, any> = new Map();
   private readonly userSocketMap: Map<string, string> = new Map();
@@ -31,6 +40,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly chatService: ChatService,
     private readonly sendMessageService: SendMessageService,
     private readonly pushNotificationService: PushNotificationService,
+    private readonly gapGptService: GapGptService,
   ) {}
 
   handleConnection(client: Socket) {
@@ -85,16 +95,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const senderStr = String(msgData.sender);
     const receiverStr = String(msgData.recieveId);
-    const contentText = saveMessages.content?.text ?? '';
+    const contentText = saveMessages?.content?.text ?? String(msgData.content);
 
     const messagePayload = {
-      id: saveMessages.id,
+      id: saveMessages?.id,
       tempId: msgData?.tempId,
       userProfile: msgData?.userProfile,
       senderId: senderStr,
       receiveId: receiverStr,
       content: contentText,
-      createdAt: saveMessages.createdAt.toISOString(),
+      createdAt: saveMessages?.createdAt
+        ? new Date(saveMessages.createdAt).toISOString()
+        : new Date().toISOString(),
       userNameSender: msgData?.userNameSender,
       isRead: false,
     };
@@ -107,9 +119,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         senderId: senderStr,
         senderName: msgData.userNameSender,
         message: contentText,
-        timestamp: saveMessages.createdAt.toISOString(),
+        timestamp: messagePayload.createdAt,
       });
-    } else {
+    } else if (receiverStr !== GAPGPT_BOT_ID) {
       const senderName = msgData?.userNameSender || 'کاربر';
       const notifBody = `${senderName}: ${contentText}`;
       void this.pushNotificationService.sendToUser(receiverStr, notifBody, {
@@ -121,6 +133,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     client.emit('message_sent_ack', messagePayload);
+
+    // پاسخ بات در صورتی که گیرنده بات باشد
+    if (receiverStr === GAPGPT_BOT_ID) {
+      await this.handleBotReply(senderStr, contentText, client);
+    }
   }
 
   @SubscribeMessage('mark_messages_as_read')
@@ -130,7 +147,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       await this.chatService.markMessagesAsRead(data.sender, data.receiver);
 
-      // فقط به فرستنده‌ی پیام خبر بده که پیامش خوانده شد
       const senderSocketId = this.userSocketMap.get(String(data.sender));
       if (senderSocketId) {
         this.server.to(senderSocketId).emit('messages_read', {
@@ -150,7 +166,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     this.userList.set(client.id, data);
     const currentUsers = Array.from(this.userList.values());
-
     this.server.emit('user_entered_optional_response', currentUsers);
   }
 
@@ -180,7 +195,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return { status: 1, message: 'Invite data is empty' };
       }
 
-      // استفاده از ?? برای جلوگیری از خطای مقدار 0
       const receiverUserId = String(
         inviteData?.receiverUserId ??
           inviteData?.receiveUserId ??
@@ -230,8 +244,52 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // --- Private Helpers ---
 
+  private async handleBotReply(
+    userId: string,
+    userMessage: string,
+    client: Socket,
+  ) {
+    try {
+      const history = this.botHistory.get(userId) || [];
+      history.push({ role: 'user', content: userMessage });
+
+      client.emit('bot_typing', { userId: GAPGPT_BOT_ID });
+
+      const botReplyText = await this.gapGptService.generateReply(
+        userMessage,
+        history,
+      );
+
+      await new Promise((r) =>
+        setTimeout(r, Math.min(2500, botReplyText.length * 30)),
+      );
+
+      history.push({ role: 'assistant', content: botReplyText });
+      this.botHistory.set(userId, history.slice(-20));
+
+      const botMessage = await this.sendMessageService.execute({
+        sender: GAPGPT_BOT_ID,
+        recieveId: userId,
+        content: botReplyText,
+      });
+
+      client.emit('receive_message', {
+        id: botMessage.id,
+        senderId: GAPGPT_BOT_ID,
+        receiveId: userId,
+        content: botMessage.content?.text ?? botReplyText,
+        createdAt: botMessage.createdAt
+          ? new Date(botMessage.createdAt).toISOString()
+          : new Date().toISOString(),
+        userNameSender: GAPGPT_BOT_NAME,
+        isRead: false,
+      });
+    } catch (err) {
+      console.error('Bot reply error:', err);
+    }
+  }
+
   private handleUserDisconnectLogic(client: Socket) {
-    // گشتن در مپ سوکت‌ها برای پیدا کردن و حذف تضمینی کاربر
     let disconnectedUserId: string | null = null;
 
     for (const [userId, socketId] of this.userSocketMap.entries()) {

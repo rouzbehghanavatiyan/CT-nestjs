@@ -1,6 +1,5 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { StatusEntity } from 'src/modules/Api/status.entity';
-import { UserBlock } from 'src/modules/Api/userBlock.entity';
 import { ChatEntity } from 'src/modules/chat/chat.entity';
 import { VideoDraftEntity } from 'src/modules/File/VideoDraftEntity';
 import { Payment } from 'src/modules/store/paymant.entity';
@@ -13,14 +12,7 @@ export const typeOrmConfig: TypeOrmModuleOptions = {
   username: 'sa',
   password: 'qweQWE123!@#',
   database: 'sotDb',
-  entities: [
-    ChatEntity,
-    StoreEntity,
-    StatusEntity,
-    Payment,
-    VideoDraftEntity,
-    UserBlock,
-  ],
+  entities: [ChatEntity, StoreEntity, StatusEntity, Payment, VideoDraftEntity],
   synchronize: true,
   options: {
     encrypt: false,

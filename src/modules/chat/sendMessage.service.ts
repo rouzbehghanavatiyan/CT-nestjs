@@ -6,15 +6,12 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ChatEntity, ChatMessageContent } from './chat.entity';
-import { UserBlock } from '../Api/userBlock.entity';
 
 @Injectable()
 export class SendMessageService {
   constructor(
     @InjectRepository(ChatEntity)
     private readonly chatRepository: Repository<ChatEntity>,
-    @InjectRepository(UserBlock)
-    private readonly blockRepository: Repository<UserBlock>,
   ) {}
 
   async execute(msgData: any): Promise<ChatEntity> {
@@ -26,14 +23,19 @@ export class SendMessageService {
       throw new BadRequestException('sender, recieveId و content الزامی هستند');
     }
 
-    const isBlocked = await this.blockRepository.findOne({
-      where: [
-        { blockerId: receiveId, blockedId: senderId }, // گیرنده، فرستنده را بلاک کرده
-        { blockerId: senderId, blockedId: receiveId }, // فرستنده، گیرنده را بلاک کرده
-      ],
-    });
+    const blockQuery = `
+      SELECT TOP 1 [Id]
+      FROM [sotDb].[dbo].[UserBlock]
+      WHERE (BlockerId = @0 AND BlockedId = @1)
+         OR (BlockerId = @1 AND BlockedId = @0)
+    `;
 
-    if (isBlocked) {
+    const blockResult = await this.chatRepository.query(blockQuery, [
+      receiveId,
+      senderId,
+    ]);
+
+    if (blockResult && blockResult.length > 0) {
       throw new ForbiddenException(
         'امکان ارسال پیام به دلیل مسدود بودن وجود ندارد.',
       );

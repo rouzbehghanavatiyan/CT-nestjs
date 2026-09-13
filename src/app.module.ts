@@ -13,7 +13,6 @@ import { StoreModule } from './modules/store/store.module';
 import { FileModule } from './modules/File/file.module';
 import { ApiModule } from './modules/Api/api.module';
 import { StatusEntity } from './modules/Api/status.entity';
-import { UserBlock } from './modules/Api/userBlock.entity';
 
 @Module({
   imports: [
@@ -22,7 +21,7 @@ import { UserBlock } from './modules/Api/userBlock.entity';
       envFilePath: `.env`,
     }),
     TypeOrmModule.forRoot(typeOrmConfig),
-    TypeOrmModule.forFeature([ChatEntity, StatusEntity, UserBlock]),
+    TypeOrmModule.forFeature([ChatEntity, StatusEntity]),
     ChatModule,
     SocketModule,
     ApiModule,
