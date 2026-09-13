@@ -9,11 +9,7 @@ export class CreateDraftUseCase {
     private readonly videoAttachRepository: IVideoAttachRepository,
   ) {}
 
-  async execute(data: {
-    fileName: string;
-    size: number;
-    mimeType: string;
-  }) {
+  async execute(data: { fileName: string; size: number; mimeType: string }) {
     // return await this.videoAttachRepository.createDraft(data);
   }
 }

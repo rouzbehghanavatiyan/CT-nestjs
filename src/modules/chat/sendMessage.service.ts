@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ChatEntity, ChatMessageContent } from './chat.entity';
@@ -30,7 +34,9 @@ export class SendMessageService {
     });
 
     if (isBlocked) {
-      throw new ForbiddenException('امکان ارسال پیام به دلیل مسدود بودن وجود ندارد.');
+      throw new ForbiddenException(
+        'امکان ارسال پیام به دلیل مسدود بودن وجود ندارد.',
+      );
     }
 
     const content: ChatMessageContent = {

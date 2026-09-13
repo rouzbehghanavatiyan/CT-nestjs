@@ -7,7 +7,7 @@ export class PushNotificationService {
   private readonly notifBaseUrl =
     process.env.NOTIF_SERVICE_URL || 'https://gateway.clashtalent.com';
 
-   private signServiceToken(userId: string | number): string {
+  private signServiceToken(userId: string | number): string {
     const secret = process.env.SECRET_KEY;
     if (!secret) {
       throw new Error('SECRET_KEY در env تنظیم نشده است');
@@ -18,7 +18,6 @@ export class PushNotificationService {
       sub: String(userId),
     };
 
-    // همان الگوریتم/زمان انقضای پیش‌فرض AuthModule (HS256, 1 روز)
     return jwt.sign(payload, secret, { expiresIn: '1d' });
   }
 
@@ -55,7 +54,6 @@ export class PushNotificationService {
           ...(data ? { data } : {}),
         }),
       });
-
       if (!response.ok) {
         const text = await response.text().catch(() => '');
         this.logger.error(

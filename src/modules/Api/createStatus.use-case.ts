@@ -10,7 +10,8 @@ export class CreateStatusUseCase {
   ) {}
 
   async execute(dto: CreateStatusDto, userId: string) {
-    const existingStatus = await this.statusRepository.getStatusByUserId(userId);
+    const existingStatus =
+      await this.statusRepository.getStatusByUserId(userId);
 
     if (existingStatus) {
       return await this.statusRepository.update(userId, dto);

@@ -3,7 +3,7 @@ import { ChatGateway } from './chat.gateway';
 import { ChatModule } from '../chat/chat.module';
 
 @Module({
-  imports: [ChatModule], 
+  imports: [ChatModule],
   providers: [ChatGateway],
   exports: [ChatGateway],
 })

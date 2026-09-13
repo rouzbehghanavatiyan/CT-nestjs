@@ -58,7 +58,7 @@ export class ChatController {
         attachmentType: message.AttachmentType,
         sender: message.Id,
         unreadCount: message.unreadCount,
-        isReadChat: !!message.isReadChat, 
+        isReadChat: !!message.isReadChat,
       }));
       return {
         status: 0,
