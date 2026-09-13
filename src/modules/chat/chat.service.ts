@@ -76,6 +76,14 @@ export class ChatService {
     return await this.chatRepository.query(query, [userIdLogin]);
   }
 
+  async isBotUser(userId: string): Promise<boolean> {
+    const result = await this.chatRepository.query(
+      `SELECT TOP 1 UserTypeId FROM [User] WHERE Id = @0`,
+      [userId],
+    );
+    return result?.[0]?.UserTypeId === 1;
+  }
+
   async markMessagesAsRead(
     senderId: string,
     receiveId: string,

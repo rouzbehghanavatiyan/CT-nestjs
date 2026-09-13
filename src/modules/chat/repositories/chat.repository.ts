@@ -16,27 +16,4 @@ export class ChatRepository extends Repository<ChatEntity> {
       .limit(limit)
       .getMany();
   }
-
-  // async markMessagesAsRead(
-  //   senderId: string,
-  //   receiverId: number,
-  // ): Promise<void> {
-  //   await this.createQueryBuilder()
-  //     .update(ChatEntity)
-  //     .set({ time: new Date().getTime })
-  //     .where(
-  //       'senderId = :senderId AND receiverId = :receiverId AND readAt IS NULL',
-  //     )
-  //     .setParameters({ senderId, receiverId })
-  //     .execute();
-  // }
-
-  //   async getUnreadCount(receiverId: number): Promise<number> {
-  //     return this.chatRepository.count({
-  //       where: {
-  //         receiverId: receiverId.toString(), // تبدیل number به string
-  //         readAt: null,
-  //       },
-  //     });
-  //   }
 }

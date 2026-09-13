@@ -111,32 +111,36 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       isRead: false,
     };
 
+    const isReceiverBot = await this.chatService.isBotUser(receiverStr);
     const receiverSocketId = this.userSocketMap.get(receiverStr);
 
     if (receiverSocketId) {
       this.server.to(receiverSocketId).emit('receive_message', messagePayload);
-      this.server.to(receiverSocketId).emit('new_message_notification', {
-        senderId: senderStr,
-        senderName: msgData.userNameSender,
-        message: contentText,
-        timestamp: messagePayload.createdAt,
-      });
-    } else if (receiverStr !== GAPGPT_BOT_ID) {
-      const senderName = msgData?.userNameSender || 'کاربر';
-      const notifBody = `${senderName}: ${contentText}`;
-      void this.pushNotificationService.sendToUser(receiverStr, notifBody, {
-        type: 'chat_message',
-        senderId: senderStr,
-        senderName: msgData?.userNameSender,
-        senderProfile: msgData?.userProfile,
-      });
+
+      // this.server.to(receiverSocketId).emit('new_message_notification', {
+      //   senderId: senderStr,
+      //   senderName: msgData.userNameSender,
+      //   message: contentText,
+      //   timestamp: messagePayload.createdAt,
+      // });
+    } else if (!isReceiverBot) {
+      // const senderName = msgData?.userNameSender || 'کاربر';
+      // const notifBody = `${senderName}: ${contentText}`;
+      // void this.pushNotificationService.sendToUser(receiverStr, notifBody, {
+      //   type: 'chat_message',
+      //   senderId: senderStr,
+      //   senderName: msgData?.userNameSender,
+      //   senderProfile: msgData?.userProfile,
+      // });
     }
 
     client.emit('message_sent_ack', messagePayload);
 
-    // پاسخ بات در صورتی که گیرنده بات باشد
-    if (receiverStr === GAPGPT_BOT_ID) {
-      await this.handleBotReply(senderStr, contentText, client);
+    if (isReceiverBot) {
+      const delay = (ms: number) =>
+        new Promise((resolve) => setTimeout(resolve, ms));
+
+      await this.handleBotReply(senderStr, receiverStr, contentText, client);
     }
   }
 
@@ -242,18 +246,29 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  // --- Private Helpers ---
-
   private async handleBotReply(
     userId: string,
+    botId: string, // Id واقعی همان کاربری که گیرنده بود و isBotUser=true بود
     userMessage: string,
     client: Socket,
   ) {
     try {
-      const history = this.botHistory.get(userId) || [];
-      history.push({ role: 'user', content: userMessage });
+      client.emit('bot_typing', { userId: botId });
 
-      client.emit('bot_typing', { userId: GAPGPT_BOT_ID });
+      const { messages } = await this.chatService.getUserMessageService(
+        userId,
+        botId,
+        0,
+        20,
+      );
+
+      const history = messages.map((msg) => ({
+        role:
+          String(msg.senderId) === botId
+            ? ('assistant' as const)
+            : ('user' as const),
+        content: msg.content?.text ?? '',
+      }));
 
       const botReplyText = await this.gapGptService.generateReply(
         userMessage,
@@ -264,18 +279,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         setTimeout(r, Math.min(2500, botReplyText.length * 30)),
       );
 
-      history.push({ role: 'assistant', content: botReplyText });
-      this.botHistory.set(userId, history.slice(-20));
-
       const botMessage = await this.sendMessageService.execute({
-        sender: GAPGPT_BOT_ID,
+        sender: botId,
         recieveId: userId,
         content: botReplyText,
       });
 
       client.emit('receive_message', {
         id: botMessage.id,
-        senderId: GAPGPT_BOT_ID,
+        senderId: botId,
         receiveId: userId,
         content: botMessage.content?.text ?? botReplyText,
         createdAt: botMessage.createdAt
@@ -288,7 +300,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       console.error('Bot reply error:', err);
     }
   }
-
   private handleUserDisconnectLogic(client: Socket) {
     let disconnectedUserId: string | null = null;
 
