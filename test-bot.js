@@ -13,7 +13,7 @@ socket.on('connect', () => {
     console.log('📤 Sending message to bot...');
     socket.emit('send_message', {
       sender: '2',
-      recieveId: '5060',
+      recieveId: '1',
       content: 'what is love?',
       userNameSender: 'کاربر تست',
     });

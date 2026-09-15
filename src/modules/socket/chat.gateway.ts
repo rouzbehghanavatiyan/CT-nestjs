@@ -14,9 +14,6 @@ import { PushNotificationService } from '../chat/pushNotification.service';
 import { ChatEntity } from '../chat/chat.entity';
 import { GapGptService } from '../chat/gapgpt.service';
 
-const GAPGPT_BOT_ID = 'gapgpt_bot';
-const GAPGPT_BOT_NAME = 'GapGPT Bot';
-
 @WebSocketGateway({
   cors: {
     origin: '*',
@@ -245,10 +242,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to(targetSocketId).emit('add_invite_optional_target', data);
     }
   }
-
   private async handleBotReply(
     userId: string,
-    botId: string, // Id واقعی همان کاربری که گیرنده بود و isBotUser=true بود
+    botId: string,
     userMessage: string,
     client: Socket,
   ) {
@@ -293,7 +289,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         createdAt: botMessage.createdAt
           ? new Date(botMessage.createdAt).toISOString()
           : new Date().toISOString(),
-        userNameSender: GAPGPT_BOT_NAME,
+        userNameSender: 'GAPGPT_BOT_NAME',
         isRead: false,
       });
     } catch (err) {
