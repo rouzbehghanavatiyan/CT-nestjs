@@ -24,10 +24,10 @@ export class SendMessageService {
     }
 
     const blockQuery = `
-      SELECT TOP 1 [Id]
-      FROM [sotDb].[dbo].[UserBlock]
-      WHERE (BlockerId = @0 AND BlockedId = @1)
-         OR (BlockerId = @1 AND BlockedId = @0)`;
+  SELECT TOP 1 [Id]
+  FROM [dbo].[UserBlocks]
+  WHERE (BlockerId = @0 AND BlockedId = @1)
+     OR (BlockerId = @1 AND BlockedId = @0)`;
 
     const blockResult = await this.chatRepository.query(blockQuery, [
       receiveId,

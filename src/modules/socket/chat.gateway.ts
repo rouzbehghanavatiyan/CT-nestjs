@@ -274,7 +274,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await new Promise((r) =>
         setTimeout(r, Math.min(2500, botReplyText.length * 30)),
       );
-
+      
       const botMessage = await this.sendMessageService.execute({
         sender: botId,
         recieveId: userId,
