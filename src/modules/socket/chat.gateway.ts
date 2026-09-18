@@ -10,9 +10,9 @@ import {
 import { Server, Socket } from 'socket.io';
 import { ChatService } from 'src/modules/chat/chat.service';
 import { SendMessageService } from 'src/modules/chat/sendMessage.service';
-import { PushNotificationService } from '../chat/pushNotification.service';
-import { ChatEntity } from '../chat/chat.entity';
-import { GapGptService } from '../chat/gapgpt.service';
+import { PushNotificationService } from 'src/modules/chat/pushNotification.service';
+import { ChatEntity } from 'src/modules/chat/chat.entity';
+import { GapGptService } from 'src/modules/chat/gapgpt.service';
 
 @WebSocketGateway({
   cors: {
@@ -109,6 +109,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
 
     const isReceiverBot = await this.chatService.isBotUser(receiverStr);
+    console.log('🔍 Bot check:', { receiverStr, isReceiverBot });
     const receiverSocketId = this.userSocketMap.get(receiverStr);
 
     if (receiverSocketId) {
@@ -274,7 +275,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await new Promise((r) =>
         setTimeout(r, Math.min(2500, botReplyText.length * 30)),
       );
-      
+
       const botMessage = await this.sendMessageService.execute({
         sender: botId,
         recieveId: userId,

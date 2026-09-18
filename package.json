@@ -25,6 +25,8 @@
     "migration:create": "typeorm migration:create",
     "schema:sync": "typeorm schema:sync",
     "schema:drop": "typeorm schema:drop",
+    "deploy:prod": "npm run build && pm2 start ecosystem.config.js",
+    "reload:prod": "npm run build && pm2 reload ecosystem.config.js",
     "typeorm": "typeorm-ts-node-commonjs"
   },
   "dependencies": {
