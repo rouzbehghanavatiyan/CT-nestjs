@@ -73,7 +73,9 @@ export class ChatService {
       WHERE a.AttachmentId = u.Id
       ORDER BY a.Id DESC
     ) att`;
-    return await this.chatRepository.query(query, [userIdLogin]);
+    const res = await this.chatRepository.query(query, [userIdLogin]);
+    console.log('res', res);
+    return res;
   }
 
   async isBotUser(userId: string): Promise<boolean> {

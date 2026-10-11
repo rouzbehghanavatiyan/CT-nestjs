@@ -7,10 +7,10 @@ import { StoreEntity } from 'src/modules/store/store.entity';
 
 export const typeOrmConfig: TypeOrmModuleOptions = {
   type: 'mssql',
-  host: '171.22.25.222',
+  host: '5.252.177.33',
   port: 1433,
   username: 'sa',
-  password: 'qweQWE123!@#',
+  password: 'Armangh26362!',
   database: 'sotDb',
   entities: [ChatEntity, StoreEntity, StatusEntity, Payment, VideoDraftEntity],
   synchronize: true,

@@ -9,7 +9,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
-import { JwtAuthGuard } from 'src/modules/auth/jwt-auth.guard';
 import { GetUser } from 'src/modules/auth/user.decorator';
 
 @Controller('api/chat')
@@ -18,8 +17,8 @@ export class ChatController {
 
   @Get('userMessages')
   async getUserMessages(
-    @Query('userIdLogin') userIdLogin: string, // تبدیل به string (GUID)
-    @Query('userIdSender') userIdSender: string, // تبدیل به string (GUID)
+    @Query('userIdLogin') userIdLogin: string,
+    @Query('userIdSender') userIdSender: string,
     @Query('skip') skip: number = 0,
     @Query('take') take: number = 10,
   ) {
@@ -42,12 +41,12 @@ export class ChatController {
     }
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('allUserMessagese')
-  async getMessagesByReceiveId(@Query('userIdLogin') userIdLogin: string) {
+  async getMessagesByReceiveId(@GetUser('userId') userIdLogin: any) {
     try {
-      const response: any =
-        await this.chatService.getMessagesByReceiveId(userIdLogin);
+      const response: any = await this.chatService.getMessagesByReceiveId(
+        userIdLogin?.UserId,
+      );
 
       const filteredResponse = response.map((message: any) => ({
         userProfile: message.userProfile,
@@ -60,16 +59,17 @@ export class ChatController {
         unreadCount: message.unreadCount,
         isReadChat: !!message.isReadChat,
       }));
+
       return {
         status: 0,
         data: filteredResponse,
         message: 'success',
       };
     } catch (error) {
-      console.log(error);
+      console.error(error);
+      throw error;
     }
   }
-
   @Get('getUserProfile')
   getProfile(@GetUser() user: any) {
     return {
