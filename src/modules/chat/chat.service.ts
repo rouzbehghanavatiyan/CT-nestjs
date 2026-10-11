@@ -115,7 +115,7 @@ export class ChatService {
       `SELECT TOP 1 UserTypeId FROM [User] WHERE Id = @0`,
       [userId],
     );
-    return result?.[0]?.UserTypeId === 1;
+    return result?.[0]?.UserTypeId === 2;
   }
 
   async markMessagesAsRead(

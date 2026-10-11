@@ -13,6 +13,7 @@ import { StoreModule } from './modules/store/store.module';
 import { FileModule } from './modules/File/file.module';
 import { ApiModule } from './modules/Api/api.module';
 import { StatusEntity } from './modules/Api/status.entity';
+import { BotReplyJobEntity } from './modules/chat/botReplyJob.entity';
 
 @Module({
   imports: [
@@ -20,13 +21,12 @@ import { StatusEntity } from './modules/Api/status.entity';
       isGlobal: true,
       envFilePath: `.env`,
     }),
-    // تغییر forRoot به forRootAsync جهت تزریق ConfigService
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) =>
         getTypeOrmConfig(configService),
     }),
-    TypeOrmModule.forFeature([ChatEntity, StatusEntity]),
+    TypeOrmModule.forFeature([ChatEntity, StatusEntity, BotReplyJobEntity]),
     ChatModule,
     SocketModule,
     ApiModule,

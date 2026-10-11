@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { StatusEntity } from 'src/modules/Api/status.entity';
+import { BotReplyJobEntity } from 'src/modules/chat/botReplyJob.entity';
 import { ChatEntity } from 'src/modules/chat/chat.entity';
 import { VideoDraftEntity } from 'src/modules/File/VideoDraftEntity';
 import { Payment } from 'src/modules/store/paymant.entity';
@@ -15,7 +16,14 @@ export const getTypeOrmConfig = (
   username: configService.get<string>('DB_USERNAME'),
   password: configService.get<string>('DB_PASSWORD'),
   database: configService.get<string>('DB_NAME'),
-  entities: [ChatEntity, StoreEntity, StatusEntity, Payment, VideoDraftEntity],
+  entities: [
+    ChatEntity,
+    StoreEntity,
+    StatusEntity,
+    Payment,
+    VideoDraftEntity,
+    BotReplyJobEntity,
+  ],
   synchronize: configService.get<string>('DB_SYNCHRONIZE') === 'true',
   options: {
     encrypt: false,

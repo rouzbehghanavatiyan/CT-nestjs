@@ -13,6 +13,9 @@ import { SendMessageService } from 'src/modules/chat/sendMessage.service';
 import { PushNotificationService } from 'src/modules/chat/pushNotification.service';
 import { ChatEntity } from 'src/modules/chat/chat.entity';
 import { GapGptService } from 'src/modules/chat/gapgpt.service';
+import { BotReplyScheduler } from './botReply.scheduler';
+import { OnModuleInit } from '@nestjs/common';
+import { BOT_REPLY_DELAY_MS } from 'src/utils/bot-reply.constants';
 
 @WebSocketGateway({
   cors: {
@@ -20,14 +23,11 @@ import { GapGptService } from 'src/modules/chat/gapgpt.service';
     credentials: true,
   },
 })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway
+  implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit
+{
   @WebSocketServer()
   server: Server;
-
-  private readonly botHistory: Map<
-    string,
-    { role: 'user' | 'assistant'; content: string }[]
-  > = new Map();
 
   private readonly userList: Map<string, any> = new Map();
   private readonly optionalUserList: Map<string, any> = new Map();
@@ -38,7 +38,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly sendMessageService: SendMessageService,
     private readonly pushNotificationService: PushNotificationService,
     private readonly gapGptService: GapGptService,
+    private readonly botReplyScheduler: BotReplyScheduler,
   ) {}
+
+  onModuleInit() {
+    this.botReplyScheduler.setHandler((userId, botId) =>
+      this.generateAndDeliverBotReply(userId, botId),
+    );
+  }
 
   handleConnection(client: Socket) {
     console.log(`Client connected: ${client.id}`);
@@ -135,10 +142,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.emit('message_sent_ack', messagePayload);
 
     if (isReceiverBot) {
-      const delay = (ms: number) =>
-        new Promise((resolve) => setTimeout(resolve, ms));
-
-      await this.handleBotReply(senderStr, receiverStr, contentText, client);
+      await this.scheduleBotReply(senderStr, receiverStr, client);
     }
   }
 
@@ -243,60 +247,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to(targetSocketId).emit('add_invite_optional_target', data);
     }
   }
-  private async handleBotReply(
-    userId: string,
-    botId: string,
-    userMessage: string,
-    client: Socket,
-  ) {
-    try {
-      client.emit('bot_typing', { userId: botId });
 
-      const { messages } = await this.chatService.getUserMessageService(
-        userId,
-        botId,
-        0,
-        20,
-      );
-
-      const history = messages.map((msg) => ({
-        role:
-          String(msg.senderId) === botId
-            ? ('assistant' as const)
-            : ('user' as const),
-        content: msg.content?.text ?? '',
-      }));
-
-      const botReplyText = await this.gapGptService.generateReply(
-        userMessage,
-        history,
-      );
-
-      await new Promise((r) =>
-        setTimeout(r, Math.min(2500, botReplyText.length * 30)),
-      );
-
-      const botMessage = await this.sendMessageService.execute({
-        sender: botId,
-        recieveId: userId,
-        content: botReplyText,
-      });
-
-      client.emit('receive_message', {
-        id: botMessage.id,
-        senderId: botId,
-        receiveId: userId,
-        content: botMessage.content?.text ?? botReplyText,
-        createdAt: botMessage.createdAt
-          ? new Date(botMessage.createdAt).toISOString()
-          : new Date().toISOString(),
-        userNameSender: 'GAPGPT_BOT_NAME',
-        isRead: false,
-      });
-    } catch (err) {
-      console.error('Bot reply error:', err);
-    }
-  }
   private handleUserDisconnectLogic(client: Socket) {
     let disconnectedUserId: string | null = null;
 
@@ -335,6 +286,81 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       ) {
         this.optionalUserList.delete(userIdSender);
       }
+    }
+  }
+
+  private async scheduleBotReply(
+    userId: string,
+    botId: string,
+    client: Socket,
+  ) {
+    console.log('🕒 scheduleBotReply called', { userId, botId });
+    const delay = BOT_REPLY_DELAY_MS();
+    const { alreadyScheduled, runAt } = await this.botReplyScheduler.schedule(
+      userId,
+      botId,
+      delay,
+    );
+
+    client.emit('bot_reply_scheduled', {
+      botId,
+      alreadyScheduled,
+      delayMs: delay,
+      runAt: new Date(runAt).toISOString(),
+    });
+  }
+  async generateAndDeliverBotReply(userId: string, botId: string) {
+    const { messages } = await this.chatService.getUserMessageService(
+      userId,
+      botId,
+      0,
+      20,
+    );
+
+    const sorted = [...messages].sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+
+    const history = sorted.map((msg) => ({
+      role:
+        String(msg.senderId) === botId
+          ? ('assistant' as const)
+          : ('user' as const),
+      content: msg.content?.text ?? '',
+    }));
+
+    const lastUserMsg = [...history].reverse().find((m) => m.role === 'user');
+    if (!lastUserMsg) return;
+
+    const replyText = await this.gapGptService.generateReply(
+      lastUserMsg.content,
+      history,
+    );
+
+    const botMessage = await this.sendMessageService.execute({
+      sender: botId,
+      recieveId: userId,
+      content: replyText,
+    });
+
+    // کاربر ممکن است آفلاین باشد؛ پیام در دیتابیس ذخیره شده و بعداً دیده می‌شود
+    const socketId = this.userSocketMap.get(userId);
+    if (socketId) {
+      this.server.to(socketId).emit('receive_message', {
+        id: botMessage.id,
+        senderId: botId,
+        receiveId: userId,
+        content: botMessage.content?.text ?? replyText,
+        createdAt: botMessage.createdAt
+          ? new Date(botMessage.createdAt).toISOString()
+          : new Date().toISOString(),
+        userNameSender: 'GAPGPT_BOT_NAME',
+        isRead: false,
+      });
+    } else {
+      // اختیاری: پوش نوتیفیکیشن
+      // void this.pushNotificationService.sendToUser(userId, replyText, {...});
     }
   }
 }
