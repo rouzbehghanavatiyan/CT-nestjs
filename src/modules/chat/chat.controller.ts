@@ -42,13 +42,23 @@ export class ChatController {
   }
 
   @Get('allUserMessagese')
-  async getMessagesByReceiveId(@GetUser('userId') userIdLogin: any) {
+  async getMessagesByReceiveId(
+    @GetUser('userId') userIdLogin: any,
+    @Query('skip') skip: number = 0,
+    @Query('take') take: number = 20,
+  ) {
     try {
-      const response: any = await this.chatService.getMessagesByReceiveId(
-        userIdLogin?.UserId,
-      );
+      const currentUserId =
+        typeof userIdLogin === 'object' ? userIdLogin?.UserId : userIdLogin;
 
-      const filteredResponse = response.map((message: any) => ({
+      const { data, hasMore, total } =
+        await this.chatService.getMessagesByReceiveId(
+          currentUserId,
+          Number(skip) || 0,
+          Number(take) || 20,
+        );
+
+      const filteredResponse = data.map((message: any) => ({
         userProfile: message.userProfile,
         attachmentName: message.AttachmentName,
         ext: message.Ext,
@@ -57,12 +67,15 @@ export class ChatController {
         attachmentType: message.AttachmentType,
         sender: message.Id,
         unreadCount: message.unreadCount,
-        isReadChat: !!message.isReadChat,
+        isReadChat: !message.isReadChat,
+        lastMessageDate: message.LastMessageDate,
       }));
 
       return {
         status: 0,
         data: filteredResponse,
+        hasMore,
+        total,
         message: 'success',
       };
     } catch (error) {
@@ -70,6 +83,7 @@ export class ChatController {
       throw error;
     }
   }
+
   @Get('getUserProfile')
   getProfile(@GetUser() user: any) {
     return {

@@ -44,7 +44,21 @@ export class ChatService {
     }
   }
 
-  async getMessagesByReceiveId(userIdLogin: string): Promise<any[]> {
+  async getMessagesByReceiveId(
+    userIdLogin: string,
+    skip: number = 0,
+    take: number = 20,
+  ): Promise<{ data: any[]; hasMore: boolean; total: number }> {
+    // ۱. شمارش کل مخاطبان یکتای کاربر برای pagination
+    const countQuery = `
+    SELECT COUNT(DISTINCT CASE WHEN chat.senderId = @0 THEN chat.receiveId ELSE chat.senderId END) AS totalCount
+    FROM chats chat
+    WHERE chat.senderId = @0 OR chat.receiveId = @0
+  `;
+    const countRes = await this.chatRepository.query(countQuery, [userIdLogin]);
+    const total = Number(countRes?.[0]?.totalCount || 0);
+
+    // ۲. واکشی داده‌ها با OFFSET و FETCH NEXT + مرتب‌سازی بر اساس تاریخ آخرین پیام
     const query = `
     SELECT 
       u.*,
@@ -52,6 +66,7 @@ export class ChatService {
       att.[FileName],
       att.AttachmentType,
       att.Ext,
+      partners.LastMessageDate,
       (SELECT COUNT(*) FROM chats c WHERE c.senderId = u.Id AND c.receiveId = @0 AND c.isRead = 0) AS unreadCount,
       CASE 
         WHEN EXISTS (
@@ -61,10 +76,12 @@ export class ChatService {
         ELSE CAST(1 AS BIT) 
       END AS isReadChat
     FROM (
-      SELECT DISTINCT
-        CASE WHEN chat.senderId = @0 THEN chat.receiveId ELSE chat.senderId END AS PartnerId
+      SELECT 
+        CASE WHEN chat.senderId = @0 THEN chat.receiveId ELSE chat.senderId END AS PartnerId,
+        MAX(chat.createdAt) AS LastMessageDate
       FROM chats chat
       WHERE chat.senderId = @0 OR chat.receiveId = @0
+      GROUP BY CASE WHEN chat.senderId = @0 THEN chat.receiveId ELSE chat.senderId END
     ) partners
     JOIN [User] u ON u.Id = partners.PartnerId
     OUTER APPLY (
@@ -72,10 +89,28 @@ export class ChatService {
       FROM Attachments a
       WHERE a.AttachmentId = u.Id
       ORDER BY a.Id DESC
-    ) att`;
-    const res = await this.chatRepository.query(query, [userIdLogin]);
-    console.log('res', res);
-    return res;
+    ) att
+    ORDER BY partners.LastMessageDate DESC
+    OFFSET @1 ROWS
+    FETCH NEXT @2 ROWS ONLY
+  `;
+
+    const rows = await this.chatRepository.query(query, [
+      userIdLogin,
+      skip,
+      take + 1,
+    ]);
+
+    const hasMore = rows.length > take;
+    if (hasMore) {
+      rows.pop();
+    }
+
+    return {
+      data: rows,
+      hasMore,
+      total,
+    };
   }
 
   async isBotUser(userId: string): Promise<boolean> {
