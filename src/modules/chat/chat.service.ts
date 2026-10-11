@@ -49,7 +49,6 @@ export class ChatService {
     skip: number = 0,
     take: number = 20,
   ): Promise<{ data: any[]; hasMore: boolean; total: number }> {
-    // ۱. شمارش کل مخاطبان یکتای کاربر برای pagination
     const countQuery = `
     SELECT COUNT(DISTINCT CASE WHEN chat.senderId = @0 THEN chat.receiveId ELSE chat.senderId END) AS totalCount
     FROM chats chat
@@ -57,8 +56,6 @@ export class ChatService {
   `;
     const countRes = await this.chatRepository.query(countQuery, [userIdLogin]);
     const total = Number(countRes?.[0]?.totalCount || 0);
-
-    // ۲. واکشی داده‌ها با OFFSET و FETCH NEXT + مرتب‌سازی بر اساس تاریخ آخرین پیام
     const query = `
     SELECT 
       u.*,

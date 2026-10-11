@@ -87,7 +87,7 @@ export class ChatController {
   @Get('getUserProfile')
   getProfile(@GetUser() user: any) {
     return {
-      userId: user.userId, // در دکوراتور نیز انتظار می‌رود این مقدار string باشد
+      userId: user.userId,
       username: user.username,
     };
   }

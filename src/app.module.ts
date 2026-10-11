@@ -1,8 +1,8 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { LoggerMiddleware } from './shared/middleware/logger.middleware';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { typeOrmConfig } from './config/dbTypeorm.config';
+import { getTypeOrmConfig } from './config/dbTypeorm.config';
 import { ChatEntity } from './modules/chat/chat.entity';
 import { AuthModule } from './modules/auth/auth.module';
 import { APP_GUARD } from '@nestjs/core';
@@ -20,7 +20,12 @@ import { StatusEntity } from './modules/Api/status.entity';
       isGlobal: true,
       envFilePath: `.env`,
     }),
-    TypeOrmModule.forRoot(typeOrmConfig),
+    // تغییر forRoot به forRootAsync جهت تزریق ConfigService
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) =>
+        getTypeOrmConfig(configService),
+    }),
     TypeOrmModule.forFeature([ChatEntity, StatusEntity]),
     ChatModule,
     SocketModule,
