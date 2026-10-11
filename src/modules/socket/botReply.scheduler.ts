@@ -32,9 +32,10 @@ export class BotReplyScheduler implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     await this.repo.update({ status: 'processing' }, { status: 'pending' });
-    this.logger.log(`Bot reply job runs every ${BOT_REPLY_POLL_MS}ms`);
+    const pollMs = BOT_REPLY_POLL_MS(); // اینجا پرانتز بگذارید تا عدد برگردد
+    this.logger.log(`Bot reply job runs every ${pollMs}ms`);
     void this.tick();
-    this.timer = setInterval(() => void this.tick(), BOT_REPLY_POLL_MS);
+    this.timer = setInterval(() => void this.tick(), pollMs);
   }
 
   onModuleDestroy() {
