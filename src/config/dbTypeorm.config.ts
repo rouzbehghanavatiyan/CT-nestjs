@@ -1,11 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
-import { StatusEntity } from 'src/modules/Api/status.entity';
-import { BotReplyJobEntity } from 'src/modules/chat/botReplyJob.entity';
-import { ChatEntity } from 'src/modules/chat/chat.entity';
-import { VideoDraftEntity } from 'src/modules/File/VideoDraftEntity';
-import { Payment } from 'src/modules/store/paymant.entity';
-import { StoreEntity } from 'src/modules/store/store.entity';
+import { join } from 'path';
 
 export const getTypeOrmConfig = (
   configService: ConfigService,
@@ -16,13 +11,10 @@ export const getTypeOrmConfig = (
   username: configService.get<string>('DB_USERNAME'),
   password: configService.get<string>('DB_PASSWORD'),
   database: configService.get<string>('DB_NAME'),
+  autoLoadEntities: true,
   entities: [
-    ChatEntity,
-    StoreEntity,
-    StatusEntity,
-    Payment,
-    VideoDraftEntity,
-    BotReplyJobEntity,
+    join(__dirname, '..', '**', '*.entity.{ts,js}'),
+    join(__dirname, '..', '**', '*Entity.{ts,js}'),
   ],
   synchronize: configService.get<string>('DB_SYNCHRONIZE') === 'true',
   options: {
