@@ -1,10 +1,10 @@
 const { io } = require('socket.io-client');
 
 const SOCKET_URL = 'http://127.0.0.1:4005';
-const DELAY_MS = Number(2 * 60 * 1000);
-const POLL_MS = Number(5 * 60 * 1000);
+let DELAY_MS = Number(2 * 60 * 1000);
+let POLL_MS = Number(5 * 60 * 1000);
 const TOLERANCE_MS = 1000;
-const MAX_EXTRA_MS = POLL_MS + 60000;
+let MAX_EXTRA_MS = POLL_MS + 60000;
 const SENDER_ID = process.env.SENDER_ID ?? '5094'; // کاربر عادی
 const RECEIVER_ID = process.env.RECEIVER_ID ?? '2'; // آیدی کاربری که تایپ آن ۲ (ربات) است
 
