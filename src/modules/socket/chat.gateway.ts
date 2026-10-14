@@ -15,7 +15,10 @@ import { ChatEntity } from 'src/modules/chat/chat.entity';
 import { GapGptService } from 'src/modules/chat/gapgpt.service';
 import { BotReplyScheduler } from './botReply.scheduler';
 import { OnModuleInit } from '@nestjs/common';
-import { BOT_REPLY_DELAY_MS } from 'src/utils/bot-reply.constants';
+import {
+  BOT_REPLY_DELAY_MS,
+  BOT_REPLY_POLL_MS,
+} from 'src/utils/bot-reply.constants';
 
 @WebSocketGateway({
   cors: {
@@ -306,6 +309,7 @@ export class ChatGateway
       botId,
       alreadyScheduled,
       delayMs: delay,
+      pollMs: BOT_REPLY_POLL_MS(),
       runAt: new Date(runAt).toISOString(),
     });
   }

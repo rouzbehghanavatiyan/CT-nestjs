@@ -1,9 +1,10 @@
 const { io } = require('socket.io-client');
 
 const SOCKET_URL = 'http://127.0.0.1:4005';
-const DELAY_MS = Number(process.env.BOT_REPLY_DELAY_MS ?? 240000); // ۴ دقیقه
+const DELAY_MS = Number(2 * 60 * 1000);
+const POLL_MS = Number(5 * 60 * 1000);
 const TOLERANCE_MS = 1000;
-const MAX_EXTRA_MS = 60000;
+const MAX_EXTRA_MS = POLL_MS + 60000;
 const SENDER_ID = process.env.SENDER_ID ?? '5094'; // کاربر عادی
 const RECEIVER_ID = process.env.RECEIVER_ID ?? '2'; // آیدی کاربری که تایپ آن ۲ (ربات) است
 
@@ -116,8 +117,23 @@ socket.on('message_sent_ack', () => {
 
 socket.on('bot_reply_scheduled', (data) => {
   console.log('🕒 bot_reply_scheduled:', data);
-  if (!results.scheduled) results.scheduled = data;
-  else results.secondSchedule = data;
+  if (!results.scheduled) {
+    results.scheduled = data;
+    DELAY_MS = data.delayMs;
+    MAX_EXTRA_MS = (data.pollMs ?? 0) + 60000; // یک دوره‌ی چک + زمان تولید پاسخ
+    console.log(
+      `⏱️ تأخیر سرور: ${DELAY_MS / 1000}s | بازه‌ی چک: ${(data.pollMs ?? 0) / 1000}s`,
+    );
+    timeoutTimer = setTimeout(
+      () => {
+        console.log('⏰ timeout');
+        finish();
+      },
+      DELAY_MS + MAX_EXTRA_MS + 15000,
+    );
+  } else {
+    results.secondSchedule = data;
+  }
 });
 
 socket.on('bot_typing', () => {
