@@ -25,6 +25,9 @@ import {
     origin: '*',
     credentials: true,
   },
+  transports: ['websocket', 'polling'],
+  pingInterval: 10000,
+  pingTimeout: 30000,
 })
 export class ChatGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit

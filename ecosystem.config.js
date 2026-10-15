@@ -13,7 +13,7 @@ module.exports = {
       max_memory_restart: '500M',
       env: {
         NODE_ENV: 'production',
-        LISTEN_PORT: 4005, // هماهنگ با main.ts
+        LISTEN_PORT: 4005,
       },
       error_file: path.join(__dirname, 'logs', 'err.log'),
       out_file: path.join(__dirname, 'logs', 'out.log'),
