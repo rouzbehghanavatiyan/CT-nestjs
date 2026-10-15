@@ -4,7 +4,7 @@ module.exports = {
   apps: [
     {
       name: 'sot-backend',
-      cwd: __dirname, // خودکار مسیر همین پوشه
+      cwd: __dirname,
       script: 'dist/main.js',
       instances: 1,
       exec_mode: 'fork',
@@ -13,7 +13,7 @@ module.exports = {
       max_memory_restart: '500M',
       env: {
         NODE_ENV: 'production',
-        PORT: 4005,
+        LISTEN_PORT: 4005, // هماهنگ با main.ts
       },
       error_file: path.join(__dirname, 'logs', 'err.log'),
       out_file: path.join(__dirname, 'logs', 'out.log'),

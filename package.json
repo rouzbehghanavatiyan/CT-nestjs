@@ -25,10 +25,11 @@
     "migration:create": "typeorm migration:create",
     "schema:sync": "typeorm schema:sync",
     "schema:drop": "typeorm schema:drop",
-    "deploy:prod": "npm install && npm run build && pm2 startOrReload ecosystem.config.js --update-env && pm2 save",
-    "reload:prod": "npm run build && pm2 reload ecosystem.config.js",
+    "deploy": "npm run build && pm2 startOrRestart ecosystem.config.js --update-env && pm2 save",
+    "reload": "npm run build && pm2 reload ecosystem.config.js --update-env",
     "typeorm": "typeorm-ts-node-commonjs"
   },
+
   "dependencies": {
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
