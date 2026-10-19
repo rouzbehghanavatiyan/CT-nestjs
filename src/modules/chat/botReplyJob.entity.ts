@@ -27,6 +27,6 @@ export class BotReplyJobEntity {
   @Column({ type: 'int', default: 0 })
   attempts: number;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'datetime2', default: () => 'SYSUTCDATETIME()' })
   createdAt: Date;
 }

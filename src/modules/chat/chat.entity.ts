@@ -31,7 +31,7 @@ export class ChatEntity {
   @Column({ type: 'bit', default: false })
   isRead: boolean;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'datetime2', default: () => 'SYSUTCDATETIME()' })
   createdAt: Date;
 
   @UpdateDateColumn()

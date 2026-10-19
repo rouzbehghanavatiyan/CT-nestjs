@@ -74,7 +74,7 @@ function evaluatePhase(p) {
   const r = replies.filter((x) => x.phase === p);
   const base = t0[p];
   console.log(`\n--- فاز ${p} ---`);
-
+ل
   check(`[F${p}] ack پیام دریافت شد`, !!base);
   check(`[F${p}] رویداد bot_reply_scheduled دریافت شد`, s.length >= 1);
 

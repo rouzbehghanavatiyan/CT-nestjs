@@ -20,5 +20,6 @@ export const getTypeOrmConfig = (
   options: {
     encrypt: false,
     trustServerCertificate: true,
+    useUTC: true,
   },
 });
