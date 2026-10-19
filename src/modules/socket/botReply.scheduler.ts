@@ -5,7 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, LessThanOrEqual, Repository } from 'typeorm';
+import { LessThanOrEqual, Repository } from 'typeorm';
 import { BotReplyJobEntity } from '../chat/botReplyJob.entity';
 import {
   BOT_REPLY_MAX_ATTEMPTS,
@@ -43,8 +43,9 @@ export class BotReplyScheduler implements OnModuleInit, OnModuleDestroy {
   }
 
   async schedule(userId: string, botId: string, delayMs: number) {
+    // فقط pending: اگر job در حال پردازش است، پیام جدید job تازه می‌گیرد
     const existing = await this.repo.findOne({
-      where: { userId, botId, status: In(['pending', 'processing']) },
+      where: { userId, botId, status: 'pending' },
     });
     if (existing) {
       return { alreadyScheduled: true, runAt: existing.runAt };
@@ -74,6 +75,10 @@ export class BotReplyScheduler implements OnModuleInit, OnModuleDestroy {
           { status: 'processing' },
         );
         if (!claim.affected) continue;
+
+        this.logger.log(
+          `pid=${process.pid} claimed job ${job.id} runAt=${job.runAt.toISOString()}`,
+        );
 
         try {
           await this.handler(job.userId, job.botId);

@@ -1,12 +1,32 @@
 const { io } = require('socket.io-client');
 
-const SOCKET_URL = 'http://127.0.0.1:4005';
-let DELAY_MS = Number(2 * 60 * 1000);
-let POLL_MS = Number(5 * 60 * 1000);
+const SOCKET_URL = process.env.SOCKET_URL ?? 'http://127.0.0.1:4005';
+const SENDER_ID = process.env.SENDER_ID ?? '5094';
+const RECEIVER_ID = process.env.RECEIVER_ID ?? '2';
+
 const TOLERANCE_MS = 1000;
-let MAX_EXTRA_MS = POLL_MS + 60000;
-const SENDER_ID = process.env.SENDER_ID ?? '5094'; // کاربر عادی
-const RECEIVER_ID = process.env.RECEIVER_ID ?? '2'; // آیدی کاربری که تایپ آن ۲ (ربات) است
+const GEN_TIME_MS = 60000;
+const GRACE_MS = 15000;
+
+let delayMs = null;
+let pollMs = 0;
+let phase = 1;
+let finished = false;
+let deadline = null;
+let countdown = null;
+
+const t0 = {};
+const sched = [];
+const replies = [];
+const errors = [];
+const results = [];
+
+const check = (name, ok, extra = '') => {
+  results.push(ok);
+  console.log(`${ok ? '✅ PASS' : '❌ FAIL'} - ${name} ${extra}`);
+};
+const warn = (name, ok, extra = '') =>
+  console.log(`${ok ? '✅ OK  ' : '⚠️  WARN'} - ${name} ${extra}`);
 
 console.log(`🔌 Connecting to ${SOCKET_URL} ...`);
 const socket = io(SOCKET_URL, {
@@ -14,161 +34,203 @@ const socket = io(SOCKET_URL, {
   reconnectionAttempts: 3,
 });
 
-const results = {
-  ackAt: null,
-  scheduled: null,
-  replyAt: null,
-  secondSchedule: null,
-};
-let finished = false;
-let countdown = null;
+function send(content, tempId) {
+  socket.emit('send_message', {
+    sender: SENDER_ID,
+    recieveId: RECEIVER_ID,
+    content,
+    userNameSender: 'کاربر تست',
+    tempId,
+  });
+  console.log(`📤 [فاز ${phase}] ارسال "${content}" (${tempId})`);
+}
 
-const check = (name, ok, extra = '') =>
-  console.log(`${ok ? '✅ PASS' : '❌ FAIL'} - ${name} ${extra}`);
+function armDeadline() {
+  clearTimeout(deadline);
+  const ms = (delayMs ?? 5 * 60 * 1000) + pollMs + GEN_TIME_MS + GRACE_MS;
+  deadline = setTimeout(() => {
+    console.log('⏰ timeout');
+    finish();
+  }, ms);
+}
+
+function startCountdown(ackAt) {
+  clearInterval(countdown);
+  countdown = setInterval(() => {
+    const left = Math.max(0, (delayMs ?? 0) - (Date.now() - ackAt));
+    console.log(`⏳ حدود ${Math.round(left / 1000)} ثانیه تا پاسخ بات`);
+  }, 10000);
+}
+
+function validReply(text) {
+  const words = String(text).trim().split(/\s+/).filter(Boolean);
+  return (
+    words.length >= 1 && words.length <= 4 && !/[\u0600-\u06FF]/.test(text)
+  );
+}
+
+function evaluatePhase(p) {
+  const s = sched.filter((x) => x.phase === p);
+  const r = replies.filter((x) => x.phase === p);
+  const base = t0[p];
+  console.log(`\n--- فاز ${p} ---`);
+
+  check(`[F${p}] ack پیام دریافت شد`, !!base);
+  check(`[F${p}] رویداد bot_reply_scheduled دریافت شد`, s.length >= 1);
+
+  if (p === 1) {
+    check(
+      '[F1] اولین پیام job جدید ساخت (alreadyScheduled=false)',
+      s[0]?.data.alreadyScheduled === false,
+    );
+    check(
+      '[F1] پیام دوم job تکراری نساخت (alreadyScheduled=true)',
+      s[1]?.data.alreadyScheduled === true,
+    );
+  } else {
+    check(
+      '[F2] پیام جدید بعد از پاسخ، job جدید ساخت (alreadyScheduled=false)',
+      s[0]?.data.alreadyScheduled === false,
+    );
+  }
+
+  check(`[F${p}] دقیقاً یک پاسخ آمد`, r.length === 1, `(تعداد=${r.length})`);
+
+  if (r[0] && base) {
+    const elapsed = r[0].at - base;
+    check(
+      `[F${p}] پاسخ زودتر از ${delayMs}ms نیامد`,
+      elapsed >= delayMs - TOLERANCE_MS,
+      `(elapsed=${elapsed}ms)`,
+    );
+    check(
+      `[F${p}] پاسخ در بازه مجاز رسید`,
+      elapsed <= delayMs + pollMs + GEN_TIME_MS,
+      `(elapsed=${elapsed}ms)`,
+    );
+    check(
+      `[F${p}] قالب پاسخ معتبر (۱ تا ۴ کلمه، غیرفارسی)`,
+      validReply(r[0].content),
+      `("${r[0].content}")`,
+    );
+  }
+}
 
 function finish() {
   if (finished) return;
   finished = true;
+  clearTimeout(deadline);
   clearInterval(countdown);
-  const elapsed = results.replyAt ? results.replyAt - results.ackAt : null;
 
   console.log('\n===== نتیجه تست =====');
-  check('اتصال به سرور برقرار شد', socket.connected || !!results.ackAt);
-  check('پیام ارسالی ack شد', !!results.ackAt);
-  check('رویداد bot_reply_scheduled دریافت شد', !!results.scheduled);
+  check('اتصال به سرور برقرار شد', socket.connected || !!t0[1]);
   check(
-    'پیام دوم، job تکراری نساخت',
-    results.secondSchedule?.alreadyScheduled === true,
+    'خطای send_message_error نداشتیم',
+    errors.length === 0,
+    errors.length ? JSON.stringify(errors) : '',
   );
-  check('پاسخ بات دریافت شد', !!results.replyAt);
-  if (elapsed !== null) {
-    check(
-      `پاسخ زودتر از ${DELAY_MS}ms نیامده`,
-      elapsed >= DELAY_MS - TOLERANCE_MS,
-      `(elapsed=${elapsed}ms)`,
-    );
-    check(
-      'پاسخ در بازه مجاز رسیده',
-      elapsed <= DELAY_MS + MAX_EXTRA_MS,
-      `(elapsed=${elapsed}ms)`,
-    );
+
+  evaluatePhase(1);
+  if (phase >= 2) {
+    evaluatePhase(2);
+    const r1 = replies.find((x) => x.phase === 1)?.content;
+    const r2 = replies.find((x) => x.phase === 2)?.content;
+    if (r1 && r2)
+      warn(
+        'پاسخ فاز ۲ با فاز ۱ فرق دارد',
+        r1.toLowerCase() !== r2.toLowerCase(),
+        `("${r1}" / "${r2}")`,
+      );
+  } else {
+    check('فاز ۲ اجرا شد', false, '(فاز ۱ کامل نشد)');
   }
 
-  const ok =
-    results.ackAt &&
-    results.scheduled &&
-    results.secondSchedule?.alreadyScheduled === true &&
-    elapsed !== null &&
-    elapsed >= DELAY_MS - TOLERANCE_MS &&
-    elapsed <= DELAY_MS + MAX_EXTRA_MS;
-
+  const ok = results.every(Boolean);
   console.log(ok ? '\n🎉 تست موفق' : '\n💥 تست ناموفق');
   socket.close();
   process.exit(ok ? 0 : 1);
 }
 
+function endPhase() {
+  if (phase === 1) {
+    phase = 2;
+    console.log('\n➡️  شروع فاز ۲: پیام جدید بعد از پاسخ');
+    send('tell me something', 'm3');
+  } else {
+    finish();
+  }
+}
+
 socket.on('connect', () => {
   console.log('✅ Connected:', socket.id);
   socket.emit('register_user', SENDER_ID);
-
-  setTimeout(() => {
-    socket.emit('send_message', {
-      sender: SENDER_ID,
-      recieveId: RECEIVER_ID,
-      content: 'what is love?',
-      userNameSender: 'کاربر تست',
-      tempId: Date.now().toString(),
-    });
-    console.log(
-      `📤 پیام اول ارسال شد. انتظار پاسخ بعد از ~${DELAY_MS / 1000} ثانیه ...`,
-    );
-  }, 500);
+  setTimeout(() => send('what is love?', 'm1'), 500);
 });
 
 socket.on('connect_error', (err) => {
   console.error('❌ Connection Error:', err.message);
-  console.error(
-    '   پورت/آدرس را چک کنید (SOCKET_URL) و مطمئن شوید سرور بالا است.',
-  );
 });
 
-socket.on('message_sent_ack', () => {
-  if (results.ackAt) return;
-  results.ackAt = Date.now();
-  console.log('✅ ack اول دریافت شد');
-
-  // شمارش معکوس
-  countdown = setInterval(() => {
-    const left = Math.max(0, DELAY_MS - (Date.now() - results.ackAt));
-    console.log(`⏳ حدود ${Math.round(left / 1000)} ثانیه تا پاسخ ربات`);
-  }, 30000);
-
-  // پیام دوم برای تست عدم ساخت job تکراری
-  setTimeout(() => {
-    socket.emit('send_message', {
-      sender: SENDER_ID,
-      recieveId: RECEIVER_ID,
-      content: 'and what is hate?',
-      userNameSender: 'کاربر تست',
-      tempId: (Date.now() + 1).toString(),
-    });
-  }, 1000);
-});
-
-socket.on('bot_reply_scheduled', (data) => {
-  console.log('🕒 bot_reply_scheduled:', data);
-  if (!results.scheduled) {
-    results.scheduled = data;
-    DELAY_MS = data.delayMs;
-    MAX_EXTRA_MS = (data.pollMs ?? 0) + 60000; // یک دوره‌ی چک + زمان تولید پاسخ
-    console.log(
-      `⏱️ تأخیر سرور: ${DELAY_MS / 1000}s | بازه‌ی چک: ${(data.pollMs ?? 0) / 1000}s`,
-    );
-    timeoutTimer = setTimeout(
-      () => {
-        console.log('⏰ timeout');
-        finish();
-      },
-      DELAY_MS + MAX_EXTRA_MS + 15000,
-    );
-  } else {
-    results.secondSchedule = data;
+socket.on('message_sent_ack', (data) => {
+  const id = data?.tempId;
+  if (id === 'm1' && !t0[1]) {
+    t0[1] = Date.now();
+    console.log('✅ ack پیام اول');
+    setTimeout(() => send('and what is hate?', 'm2'), 1000);
+  } else if (id === 'm3' && !t0[2]) {
+    t0[2] = Date.now();
+    console.log('✅ ack پیام فاز ۲');
+    startCountdown(t0[2]);
   }
 });
 
+socket.on('bot_reply_scheduled', (data) => {
+  console.log(`🕒 [فاز ${phase}] bot_reply_scheduled:`, data);
+  sched.push({ phase, data, at: Date.now() });
+  if (delayMs === null) {
+    delayMs = data.delayMs;
+    pollMs = data.pollMs ?? 0;
+    console.log(
+      `⏱️ تاخیر سرور: ${delayMs / 1000}s | بازه‌ی چک: ${pollMs / 1000}s`,
+    );
+    startCountdown(t0[1] ?? Date.now());
+  }
+  armDeadline();
+});
+
 socket.on('bot_typing', () => {
-  console.log('⌨️  bot_typing (نباید قبل از پایان تأخیر دیده شود)');
+  const base = t0[phase];
+  const early =
+    base && delayMs && Date.now() - base < delayMs - TOLERANCE_MS - 15000;
+  warn('bot_typing قبل از موعد نیامده', !early);
 });
 
 socket.on('receive_message', (data) => {
-  // فقط پاسخ ربات برای ما مهم است
   if (String(data.senderId) !== String(RECEIVER_ID)) return;
-  const elapsed = Date.now() - results.ackAt;
-  console.log(`📩 پاسخ بات بعد از ${elapsed}ms رسید:`, data.content);
-  results.replyAt = Date.now();
-  finish();
+  const at = Date.now();
+  const elapsed = at - (t0[phase] ?? at);
+  console.log(
+    `📩 [فاز ${phase}] پاسخ بات بعد از ${elapsed}ms: "${data.content}"`,
+  );
+  replies.push({ phase, at, content: String(data.content ?? '') });
+
+  if (replies.filter((x) => x.phase === phase).length === 1) {
+    console.log(`🔎 ${GRACE_MS / 1000}s منتظر پاسخ اضافه می‌مانیم ...`);
+    setTimeout(endPhase, GRACE_MS);
+  }
 });
 
 socket.on('send_message_error', (e) => {
   console.error('❌ send_message_error:', e);
+  errors.push(e);
   finish();
 });
 
-// اگر تا ۱۰ ثانیه وصل نشد، همان‌جا متوقف شو
 setTimeout(() => {
   if (!socket.connected) {
-    console.error(
-      '❌ بعد از ۱۰ ثانیه هنوز وصل نشده‌ایم. آدرس/پورت را بررسی کنید.',
-    );
+    console.error('❌ بعد از ۱۰ ثانیه وصل نشدیم؛ SOCKET_URL را چک کنید.');
     process.exit(1);
   }
 }, 10000);
 
-// اگر بعد از زمان مجاز چیزی نرسید
-setTimeout(
-  () => {
-    console.log('⏰ timeout');
-    finish();
-  },
-  DELAY_MS + MAX_EXTRA_MS + 15000,
-);
+armDeadline();
